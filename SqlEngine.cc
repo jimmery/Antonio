@@ -140,7 +140,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
     return -1; // we won't deal with this case right now. 
 
   fstream myfile;
-  myfile.open(loadfile);
+  myfile.open(loadfile.c_str());
   if (!myfile.is_open()) 
     return -1; // something went wrong with the IO. 
 
@@ -160,10 +160,12 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
   string line;
   int key;
   string value;
+  RecordId rid; 
   while (getline(myfile, line))
   {
     rc = parseLoadLine(line, key, value);
-    rfile.append(key, value, 0); // TODO change 0 to whatever it should be.
+    rfile.append(key, value, rid); 
+    // figure out what to do with rid? is that for the index? 
   }
   
   myfile.close();
