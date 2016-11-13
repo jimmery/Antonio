@@ -45,7 +45,7 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
     LeafNodeHeader * header = (LeafNodeHeader*) buffer; 
     int n_keys = header->num_nodes;
     if ( n_keys >= MAX_LEAF_PAIRS )
-        return 1; // TODO: figure out the error codes. 
+        return RC_NODE_FULL;
 
     LeafPair tmp_pair; 
 
@@ -89,7 +89,8 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
  */
 RC BTLeafNode::insertAndSplit(int key, const RecordId& rid, 
                               BTLeafNode& sibling, int& siblingKey)
-{ 
+{
+    
     return 0;
 }
 
@@ -105,7 +106,31 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid,
  * @return 0 if searchKey is found. Otherwise return an error code.
  */
 RC BTLeafNode::locate(int searchKey, int& eid)
-{ return 0; }
+{
+
+    // currently not binary search. TODO: change for improved efficiency? 
+    // can we do and figure out the entry id? probably huh. but it's annoying. 
+    int entry_id = 0; 
+    for ( int i = sizeof(LeafNodeHeader); 
+            i < sizeof(LeafNodeHeader) + getKeyCount() * sizeof(LeafPair); 
+            i += sizeof(LeafPair))
+    {
+        LeafPair* pair = (LeafPair*) (buffer + i);
+        if ( pair->key == searchKey )
+        {
+            eid = entry_id;
+            return 0;
+        }
+        else if ( pair->key < searchKey )
+        {
+            eid = entry_id; 
+            return RC_NO_SUCH_RECORD;
+        }
+        entry_id++;
+    }
+    eid = entry_id; 
+    return RC_NO_SUCH_RECORD;
+}
 
 /*
  * Read the (key, rid) pair from the eid entry.
@@ -123,7 +148,8 @@ RC BTLeafNode::readEntry(int eid, int& key, RecordId& rid)
  */
 PageId BTLeafNode::getNextNodePtr()
 {
-    return 0;
+    LeafNodeFooter* foot = (LeafNodeFooter*) (buffer + FOOTER_POSITION);
+    return foot->next_page;
 }
 
 /*
@@ -133,7 +159,8 @@ PageId BTLeafNode::getNextNodePtr()
  */
 RC BTLeafNode::setNextNodePtr(PageId pid)
 {
-    return 0;
+    LeafNodeFooter* foot = (LeafNodeFooter*) (buffer + FOOTER_POSITION);
+    return foot->next_page = pid;
 }
 
 /*
