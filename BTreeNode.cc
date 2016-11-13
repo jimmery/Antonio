@@ -53,11 +53,15 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
     storage_pair.rid = rid;
     storage_pair.key = key;
 
-    for ( int i = sizeof(LeafNodeHeader); 
-            i < sizeof(LeafNodeHeader) + n_keys * sizeof(LeafPair); 
+    LeafPair* pair; 
+    int i = sizeof(LeafNodeHeader); 
+    for (;  i < sizeof(LeafNodeHeader) + n_keys * sizeof(LeafPair); 
             i += sizeof(LeafPair))
     {
-        LeafPair* pair = (LeafPair*) (buffer + i);
+        //WHY ARE WE STARTING AT INDEX 1 AS OPPOSED TO INDEX 0
+        //COULD BE NULL
+        //doesn't this do a swap, not an insertion?
+        pair = (LeafPair*) (buffer + i);
         // should move the entirety of the array, I think. 
         if ( pair->key > storage_pair.key )
         {
@@ -72,6 +76,10 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
             storage_pair.rid = tmp_pair.rid;
         }
     }
+    pair =(LeafPair*)  buffer + i;
+    pair.key = storage_pair.key;
+    pair.rid = storage_pair.rid;
+
     header->num_nodes++;
 
     return 0; 
@@ -143,7 +151,7 @@ RC BTLeafNode::readEntry(int eid, int& key, RecordId& rid)
 { return 0; }
 
 /*
- * Return the pid of the next slibling node.
+ * Return the pid of the next sibling node.
  * @return the PageId of the next sibling node 
  */
 PageId BTLeafNode::getNextNodePtr()
@@ -153,7 +161,7 @@ PageId BTLeafNode::getNextNodePtr()
 }
 
 /*
- * Set the pid of the next slibling node.
+ * Set the pid of the next sibling node.
  * @param pid[IN] the PageId of the next sibling node 
  * @return 0 if successful. Return an error code if there is an error.
  */
