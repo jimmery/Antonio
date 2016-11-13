@@ -17,14 +17,26 @@ typedef struct {
   PageId previous_page;
   int num_nodes;
   PageId next_page;
-} LeafNodeHeader; // 12 bytes. 
+  PageId pid;
+} LeafNodeHeader; // 16 bytes. 
 
 typedef struct {
   RecordId rid; 
   int key; 
 } LeafPair; // 12 bytes each. 
 
+typedef struct {
+  int num_pointers;
+  PageId last_pid;
+} NonLeafHeader; // 8 bytes. 
+
+typedef struct {
+  PageId pid;
+  int key;
+} NodePair; // 8 bytes each.  
+
 #define MAX_LEAF_PAIRS (PageFile::PAGE_SIZE - sizeof(LeafNodeHeader)) / sizeof(LeafPair)
+#define MAX_NONLEAF_PAIRS (PageFile::PAGE_SIZE - sizeof(NonLeafHeader)) / sizeof(NodePair)
 
 /**
  * BTLeafNode: The class representing a B+tree leaf node.
@@ -195,6 +207,12 @@ class BTNonLeafNode {
     * that contains the node.
     */
     char buffer[PageFile::PAGE_SIZE];
+
+    /**
+      * A helpful conversion function to determine the 
+      *
+      */
+    int byteIndexOf(int i);
 }; 
 
 #endif /* BTREENODE_H */

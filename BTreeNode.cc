@@ -10,7 +10,14 @@ using namespace std;
  */
 RC BTLeafNode::read(PageId pid, const PageFile& pf)
 { 
-    return pf.read(pid, buffer); 
+    RC val = pf.read(pid, buffer); 
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer; 
+    if (header->pid != pid) {
+        // maybe make an indication saying that this is a completely 
+        // new or empty node. 
+        header->pid = pid;
+    }
+    return val;
 }
     
 /*
@@ -21,6 +28,11 @@ RC BTLeafNode::read(PageId pid, const PageFile& pf)
  */
 RC BTLeafNode::write(PageId pid, PageFile& pf)
 { 
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer; 
+    if (header->pid != pid) {
+        // maybe make an indication that the pid changed. 
+        header->pid = pid;
+    }
     return pf.write(pid, buffer);
 }
 
@@ -76,9 +88,9 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
             storage_pair.rid = tmp_pair.rid;
         }
     }
-    pair =(LeafPair*)  buffer + i;
-    pair.key = storage_pair.key;
-    pair.rid = storage_pair.rid;
+    pair =(LeafPair*)  (buffer + i);
+    pair->key = storage_pair.key;
+    pair->rid = storage_pair.rid;
 
     header->num_nodes++;
 
@@ -115,7 +127,6 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid,
  */
 RC BTLeafNode::locate(int searchKey, int& eid)
 {
-
     // currently not binary search. TODO: change for improved efficiency? 
     // can we do and figure out the entry id? probably huh. but it's annoying. 
     int entry_id = 0; 
@@ -187,7 +198,9 @@ RC BTLeafNode::setNextNodePtr(PageId pid)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::read(PageId pid, const PageFile& pf)
-{ return 0; }
+{
+    return pf.read(pid, buffer);
+}
     
 /*
  * Write the content of the node to the page pid in the PageFile pf.
@@ -196,14 +209,19 @@ RC BTNonLeafNode::read(PageId pid, const PageFile& pf)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::write(PageId pid, PageFile& pf)
-{ return 0; }
+{
+    return pf.write(pid, buffer);
+}
 
 /*
  * Return the number of keys stored in the node.
  * @return the number of keys in the node
  */
 int BTNonLeafNode::getKeyCount()
-{ return 0; }
+{
+    NonLeafHeader* header = (NonLeafHeader*) buffer;
+    return header->num_pointers;
+}
 
 
 /*
@@ -213,7 +231,49 @@ int BTNonLeafNode::getKeyCount()
  * @return 0 if successful. Return an error code if the node is full.
  */
 RC BTNonLeafNode::insert(int key, PageId pid)
-{ return 0; }
+{
+    NonLeafHeader * header = (NonLeafHeader*) buffer; 
+    int n_keys = header->num_pointers;
+    if ( n_keys >= MAX_LEAF_PAIRS )
+        return RC_NODE_FULL;
+
+    NodePair tmp_pair; 
+
+    NodePair storage_pair;
+    storage_pair.pid = pid;
+    storage_pair.key = key;
+
+    NodePair* pair; 
+    int i = sizeof(NonLeafHeader); 
+    for (;  i < sizeof(NonLeafHeader) + n_keys * sizeof(NodePair); 
+            i += sizeof(NodePair))
+    {
+        //WHY ARE WE STARTING AT INDEX 1 AS OPPOSED TO INDEX 0
+        //COULD BE NULL
+        //doesn't this do a swap, not an insertion?
+        pair = (NodePair*) (buffer + i);
+        // should move the entirety of the array, I think. 
+        if ( pair->key > storage_pair.key )
+        {
+            tmp_pair.key = pair->key;
+            tmp_pair.pid = pair->pid;
+
+            pair->key = storage_pair.key;
+            pair->pid = storage_pair.pid;
+
+            // can we just do "storage_pair = tmp_pair;"? 
+            storage_pair.key = tmp_pair.key;
+            storage_pair.pid = tmp_pair.pid;
+        }
+    }
+    pair = (NodePair*)(buffer + i);
+    pair->key = storage_pair.key;
+    pair->pid = storage_pair.pid;
+
+    header->num_pointers++;
+
+    return 0; 
+}
 
 /*
  * Insert the (key, pid) pair to the node
