@@ -156,8 +156,8 @@ RC BTLeafNode::readEntry(int eid, int& key, RecordId& rid)
  */
 PageId BTLeafNode::getNextNodePtr()
 {
-    LeafNodeFooter* foot = (LeafNodeFooter*) (buffer + FOOTER_POSITION);
-    return foot->next_page;
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
+    return header->next_page;
 }
 
 /*
@@ -167,8 +167,8 @@ PageId BTLeafNode::getNextNodePtr()
  */
 RC BTLeafNode::setNextNodePtr(PageId pid)
 {
-    LeafNodeFooter* foot = (LeafNodeFooter*) (buffer + FOOTER_POSITION);
-    return foot->next_page = pid;
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
+    return header->next_page = pid;
 }
 
 /*

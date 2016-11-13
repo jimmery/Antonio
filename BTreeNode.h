@@ -16,19 +16,15 @@
 typedef struct {
   PageId previous_page;
   int num_nodes;
-} LeafNodeHeader; // 8 bytes. 
+  PageId next_page;
+} LeafNodeHeader; // 12 bytes. 
 
 typedef struct {
   RecordId rid; 
   int key; 
 } LeafPair; // 12 bytes each. 
 
-typedef struct {
-  PageId next_page;
-} LeafNodeFooter; // 4 bytes. 
-
-#define MAX_LEAF_PAIRS (PageFile::PAGE_SIZE - sizeof(LeafNodeHeader) - sizeof(LeafNodeFooter)) / sizeof(LeafPair)
-#define FOOTER_POSITION sizeof(LeafNodeHeader) + sizeof(LeafPair) * MAX_LEAF_PAIRS
+#define MAX_LEAF_PAIRS (PageFile::PAGE_SIZE - sizeof(LeafNodeHeader)) / sizeof(LeafPair)
 
 /**
  * BTLeafNode: The class representing a B+tree leaf node.
