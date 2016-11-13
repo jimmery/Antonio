@@ -15,8 +15,9 @@
 
 typedef struct {
   PageId previous_page;
-  int num_nodes;
+  int num_keys;
   PageId next_page;
+  PageId pid;
 } LeafNodeHeader; // 12 bytes. 
 
 typedef struct {
@@ -31,6 +32,9 @@ typedef struct {
  */
 class BTLeafNode {
   public:
+      //default empty constructor, initializes header to empty state stuff
+      BTLeafNode();
+      
    /**
     * Insert the (key, rid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -89,11 +93,19 @@ class BTLeafNode {
     */
     RC setNextNodePtr(PageId pid);
 
+    PageId getPrevNodePtr();
+
+    PageId setPrevNodePtr(PageId pid);
+    
+    PageId getPid();
+    
    /**
     * Return the number of keys stored in the node.
     * @return the number of keys in the node
     */
     int getKeyCount();
+   
+  
  
    /**
     * Read the content of the node from the page pid in the PageFile pf.
