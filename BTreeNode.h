@@ -25,14 +25,23 @@ typedef struct {
   int key; 
 } LeafPair; // 12 bytes each. 
 
+/**
+  * Here, first_pid will refer to the pointer to the leaf less than the first key. 
+  */
 typedef struct {
   int num_keys;
-  PageId last_pid;
+  PageId first_pid;
 } NonLeafHeader; // 8 bytes. 
 
+/**
+  * Here, I will define NodePair as the following. 
+  * The corresponding pid to the key will be the pid of the leaf node following
+  * the key. 
+  * Hence, we have the "first_pid" element in the header. 
+  */
 typedef struct {
-  PageId pid;
-  int key;
+  int key; 
+  PageId pid; 
 } NodePair; // 8 bytes each.  
 
 #define MAX_LEAF_PAIRS (PageFile::PAGE_SIZE - sizeof(LeafNodeHeader)) / sizeof(LeafPair)
