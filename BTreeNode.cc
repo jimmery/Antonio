@@ -9,7 +9,9 @@ using namespace std;
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTLeafNode::read(PageId pid, const PageFile& pf)
-{ return 0; }
+{ 
+    return pf.read(pid, buffer); 
+}
     
 /*
  * Write the content of the node to the page pid in the PageFile pf.
@@ -18,14 +20,19 @@ RC BTLeafNode::read(PageId pid, const PageFile& pf)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTLeafNode::write(PageId pid, PageFile& pf)
-{ return 0; }
+{ 
+    return pf.write(pid, buffer);
+}
 
 /*
  * Return the number of keys stored in the node.
  * @return the number of keys in the node
  */
 int BTLeafNode::getKeyCount()
-{ return 0; }
+{
+    LeafNodeHeader * header = (LeafNodeHeader*) buffer; 
+    return header->num_nodes;
+}
 
 /*
  * Insert a (key, rid) pair to the node.
@@ -34,7 +41,41 @@ int BTLeafNode::getKeyCount()
  * @return 0 if successful. Return an error code if the node is full.
  */
 RC BTLeafNode::insert(int key, const RecordId& rid)
-{ return 0; }
+{
+    LeafNodeHeader * header = (LeafNodeHeader*) buffer; 
+    int n_keys = header->num_nodes;
+    if ( n_keys >= MAX_LEAF_PAIRS )
+        return 1; // TODO: figure out the error codes. 
+
+    LeafPair tmp_pair; 
+
+    LeafPair storage_pair;
+    storage_pair.rid = rid;
+    storage_pair.key = key;
+
+    for ( int i = sizeof(LeafNodeHeader); 
+            i < sizeof(LeafNodeHeader) + n_keys * sizeof(LeafPair); 
+            i += sizeof(LeafPair))
+    {
+        LeafPair* pair = (LeafPair*) (buffer + i);
+        // should move the entirety of the array, I think. 
+        if ( pair->key > storage_pair.key )
+        {
+            tmp_pair.key = pair->key;
+            tmp_pair.rid = pair->rid;
+
+            pair->key = storage_pair.key;
+            pair->rid = storage_pair.rid;
+
+            // can we just do "storage_pair = tmp_pair;"? 
+            storage_pair.key = tmp_pair.key;
+            storage_pair.rid = tmp_pair.rid;
+        }
+    }
+    header->num_nodes++;
+
+    return 0; 
+}
 
 /*
  * Insert the (key, rid) pair to the node
@@ -48,7 +89,9 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
  */
 RC BTLeafNode::insertAndSplit(int key, const RecordId& rid, 
                               BTLeafNode& sibling, int& siblingKey)
-{ return 0; }
+{ 
+    return 0;
+}
 
 /**
  * If searchKey exists in the node, set eid to the index entry
@@ -79,7 +122,9 @@ RC BTLeafNode::readEntry(int eid, int& key, RecordId& rid)
  * @return the PageId of the next sibling node 
  */
 PageId BTLeafNode::getNextNodePtr()
-{ return 0; }
+{
+    return 0;
+}
 
 /*
  * Set the pid of the next slibling node.
@@ -87,7 +132,9 @@ PageId BTLeafNode::getNextNodePtr()
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTLeafNode::setNextNodePtr(PageId pid)
-{ return 0; }
+{
+    return 0;
+}
 
 /*
  * Read the content of the node from the page pid in the PageFile pf.

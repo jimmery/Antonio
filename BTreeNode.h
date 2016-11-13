@@ -13,6 +13,23 @@
 #include "RecordFile.h"
 #include "PageFile.h"
 
+typedef struct {
+  PageId previous_page;
+  int num_nodes;
+} LeafNodeHeader; // 8 bytes. 
+
+typedef struct {
+  RecordId rid; 
+  int key; 
+} LeafPair; // 12 bytes each. 
+
+typedef struct {
+  PageId next_page;
+} LeafNodeFooter; // 4 bytes. 
+
+#define MAX_LEAF_PAIRS (PageFile::PAGE_SIZE - sizeof(LeafNodeHeader) - sizeof(LeafNodeFooter)) / sizeof(LeafPair)
+#define FOOTER_POSITION sizeof(LeafNodeHeader) + sizeof(LeafPair) * MAX_LEAF_PAIRS
+
 /**
  * BTLeafNode: The class representing a B+tree leaf node.
  */
@@ -63,14 +80,14 @@ class BTLeafNode {
     RC readEntry(int eid, int& key, RecordId& rid);
 
    /**
-    * Return the pid of the next slibling node.
+    * Return the pid of the next sibling node.
     * @return the PageId of the next sibling node 
     */
     PageId getNextNodePtr();
 
 
    /**
-    * Set the next slibling node PageId.
+    * Set the next sibling node PageId.
     * @param pid[IN] the PageId of the next sibling node 
     * @return 0 if successful. Return an error code if there is an error.
     */
