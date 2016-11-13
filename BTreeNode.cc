@@ -148,7 +148,16 @@ RC BTLeafNode::locate(int searchKey, int& eid)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTLeafNode::readEntry(int eid, int& key, RecordId& rid)
-{ return 0; }
+{
+    if ( eid < 0 || eid >= getKeyCount() )
+    {
+        return RC_INVALID_RID; // TODO check.
+    }
+    LeafPair* pair = (LeafPair*) (buffer + eid * sizeof(LeafPair));
+    key = pair->key;
+    rid = pair->rid;
+    return 0;
+}
 
 /*
  * Return the pid of the next sibling node.
