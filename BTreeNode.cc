@@ -2,6 +2,43 @@
 
 using namespace std;
 
+BTLeafNode::BTLeafNode() {
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
+    header->num_keys = 0;
+}
+
+BTLeafNode::BTLeafNode(PageId prev, PageId next) {
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
+    header->previous_page = prev;
+    header->next_page = next;
+    header->num_keys = 0;
+}
+
+/*
+ * Return the pid of the next sibling node.
+ * @return the PageId of the next sibling node 
+ */
+PageId BTLeafNode::getPrevNodePtr() {
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
+    return header->previous_page;
+}
+
+/*
+ * Set the pid of the next sibling node.
+ * @param pid[IN] the PageId of the next sibling node 
+ * @return 0 if successful. Return an error code if there is an error.
+ */
+RC BTLeafNode::setPrevNodePtr(PageId pid) {
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
+    header->previous_page = pid;
+    return 0;
+}
+
+PageId BTLeafNode::getPid() {
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
+    return header->pid;
+}
+
 /*
  * Read the content of the node from the page pid in the PageFile pf.
  * @param pid[IN] the PageId to read
@@ -43,7 +80,7 @@ RC BTLeafNode::write(PageId pid, PageFile& pf)
 int BTLeafNode::getKeyCount()
 {
     LeafNodeHeader * header = (LeafNodeHeader*) buffer; 
-    return header->num_nodes;
+    return header->num_keys;
 }
 
 /*
@@ -55,7 +92,7 @@ int BTLeafNode::getKeyCount()
 RC BTLeafNode::insert(int key, const RecordId& rid)
 {
     LeafNodeHeader * header = (LeafNodeHeader*) buffer; 
-    int n_keys = header->num_nodes;
+    int n_keys = header->num_keys;
     if ( n_keys >= MAX_LEAF_PAIRS )
         return RC_NODE_FULL;
 
@@ -92,7 +129,7 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
     pair->key = storage_pair.key;
     pair->rid = storage_pair.rid;
 
-    header->num_nodes++;
+    header->num_keys++;
 
     return 0; 
 }
@@ -110,7 +147,39 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
 RC BTLeafNode::insertAndSplit(int key, const RecordId& rid, 
                               BTLeafNode& sibling, int& siblingKey)
 {
+    // force sibling to be empty
+//    BTLeafNode node;
+//    sibling = node;
     
+    int n_keys = getKeyCount();
+    if (n_keys != MAX_LEAF_PAIRS) {
+        return 1;   //todo: get correct error code
+    }
+    int loc;
+    RC val = locate(key, loc);
+    if (val == 0) {
+        return 1; // todo: we found it for some weird reason get correct error code
+    }
+    
+    if (val <= n_keys/2) {
+        LeafPair* orig_pair = (LeafPair*) (buffer + sizeof(LeafNodeHeader) + (n_keys/2) * sizeof(LeafPair));
+        sibling.insert(orig_pair->key, orig_pair->rid);
+    }
+    for (int i = n_keys/2 + 1; i < n_keys; i++) {
+        LeafPair* orig_pair = (LeafPair*) (buffer + sizeof(LeafNodeHeader) + i * sizeof(LeafPair));
+        sibling.insert(orig_pair->key, orig_pair->rid);
+    }
+    
+    //update headers
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
+    sibling.setPrevNodePtr(header->pid);
+    sibling.setNextNodePtr(header->next_page);    
+    
+    header->num_keys = n_keys/2 + (val <= n_keys/2);
+    header->next_page = sibling.getPid();
+    
+    //insert new value
+    (val <= n_keys/2) ? insert(key, rid) : sibling.insert(key, rid);    
     return 0;
 }
 
@@ -188,7 +257,8 @@ PageId BTLeafNode::getNextNodePtr()
 RC BTLeafNode::setNextNodePtr(PageId pid)
 {
     LeafNodeHeader* header = (LeafNodeHeader*) buffer;
-    return header->next_page = pid;
+    header->next_page = pid;
+    return 0;
 }
 
 /*
