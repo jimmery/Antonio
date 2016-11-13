@@ -26,7 +26,7 @@ typedef struct {
 } LeafPair; // 12 bytes each. 
 
 typedef struct {
-  int num_pointers;
+  int num_keys;
   PageId last_pid;
 } NonLeafHeader; // 8 bytes. 
 
@@ -142,6 +142,12 @@ class BTLeafNode {
     * that contains the node.
     */
     char buffer[PageFile::PAGE_SIZE];
+
+    /**
+      * A helpful conversion function to determine the byte value 
+      * of the index of LeafPairs to access in the buffer. 
+      */
+    int byteIndexOf(int i);
 }; 
 
 
@@ -222,8 +228,8 @@ class BTNonLeafNode {
     char buffer[PageFile::PAGE_SIZE];
 
     /**
-      * A helpful conversion function to determine the 
-      *
+      * A helpful conversion function to determine the byte value 
+      * of the index of NodePairs to access in the buffer. 
       */
     int byteIndexOf(int i);
 }; 

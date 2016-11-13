@@ -103,14 +103,10 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
     storage_pair.key = key;
 
     LeafPair* pair; 
-    int i = sizeof(LeafNodeHeader); 
-    for (;  i < sizeof(LeafNodeHeader) + n_keys * sizeof(LeafPair); 
-            i += sizeof(LeafPair))
+
+    for (int i = 0; i < n_keys; i++)
     {
-        //WHY ARE WE STARTING AT INDEX 1 AS OPPOSED TO INDEX 0
-        //COULD BE NULL
-        //doesn't this do a swap, not an insertion?
-        pair = (LeafPair*) (buffer + i);
+        pair = (LeafPair*) (buffer + byteIndexOf(i));
         // should move the entirety of the array, I think. 
         if ( pair->key > storage_pair.key )
         {
@@ -125,12 +121,11 @@ RC BTLeafNode::insert(int key, const RecordId& rid)
             storage_pair.rid = tmp_pair.rid;
         }
     }
-    pair =(LeafPair*)  (buffer + i);
+    pair = (LeafPair*)(buffer + byteIndexOf(n_keys));
     pair->key = storage_pair.key;
     pair->rid = storage_pair.rid;
 
     header->num_keys++;
-
     return 0; 
 }
 
@@ -161,12 +156,12 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid,
         return 1; // todo: we found it for some weird reason get correct error code
     }
     
-    if (val <= n_keys/2) {
-        LeafPair* orig_pair = (LeafPair*) (buffer + sizeof(LeafNodeHeader) + (n_keys/2) * sizeof(LeafPair));
+    if (loc <= n_keys/2) {
+        LeafPair* orig_pair = (LeafPair*) (buffer + byteIndexOf(n_keys/2));
         sibling.insert(orig_pair->key, orig_pair->rid);
     }
     for (int i = n_keys/2 + 1; i < n_keys; i++) {
-        LeafPair* orig_pair = (LeafPair*) (buffer + sizeof(LeafNodeHeader) + i * sizeof(LeafPair));
+        LeafPair* orig_pair = (LeafPair*) (buffer + byteIndexOf(i));
         sibling.insert(orig_pair->key, orig_pair->rid);
     }
     
@@ -175,11 +170,14 @@ RC BTLeafNode::insertAndSplit(int key, const RecordId& rid,
     sibling.setPrevNodePtr(header->pid);
     sibling.setNextNodePtr(header->next_page);    
     
-    header->num_keys = n_keys/2 + (val <= n_keys/2);
+    header->num_keys = n_keys/2 + (loc <= n_keys/2);
     header->next_page = sibling.getPid();
     
     //insert new value
-    (val <= n_keys/2) ? insert(key, rid) : sibling.insert(key, rid);    
+    (loc <= n_keys/2) ? insert(key, rid) : sibling.insert(key, rid);    
+
+    RecordId r;
+    val = sibling.readEntry(0, siblingKey, r);
     return 0;
 }
 
@@ -199,12 +197,10 @@ RC BTLeafNode::locate(int searchKey, int& eid)
     // currently not binary search. TODO: change for improved efficiency? 
     // can we do and figure out the entry id? probably huh. but it's annoying. 
     int entry_id = 0; 
-    for ( int i = sizeof(LeafNodeHeader); 
-            i < sizeof(LeafNodeHeader) + getKeyCount() * sizeof(LeafPair); 
-            i += sizeof(LeafPair))
+    for (int i = 0; i < getKeyCount(); i++)
     {
-        LeafPair* pair = (LeafPair*) (buffer + i);
-        if ( pair->key == searchKey )
+        LeafPair* pair = (LeafPair*) (buffer + byteIndexOf(i));
+        if (pair->key == searchKey)
         {
             eid = entry_id;
             return 0;
@@ -233,7 +229,7 @@ RC BTLeafNode::readEntry(int eid, int& key, RecordId& rid)
     {
         return RC_INVALID_RID; // TODO check.
     }
-    LeafPair* pair = (LeafPair*) (buffer + eid * sizeof(LeafPair));
+    LeafPair* pair = (LeafPair*) (buffer + byteIndexOf(eid));
     key = pair->key;
     rid = pair->rid;
     return 0;
@@ -259,6 +255,11 @@ RC BTLeafNode::setNextNodePtr(PageId pid)
     LeafNodeHeader* header = (LeafNodeHeader*) buffer;
     header->next_page = pid;
     return 0;
+}
+
+int BTLeafNode::byteIndexOf(int i)
+{
+    return sizeof(LeafNodeHeader) + i * sizeof(LeafPair);
 }
 
 /*
@@ -290,7 +291,7 @@ RC BTNonLeafNode::write(PageId pid, PageFile& pf)
 int BTNonLeafNode::getKeyCount()
 {
     NonLeafHeader* header = (NonLeafHeader*) buffer;
-    return header->num_pointers;
+    return header->num_keys;
 }
 
 
@@ -303,8 +304,8 @@ int BTNonLeafNode::getKeyCount()
 RC BTNonLeafNode::insert(int key, PageId pid)
 {
     NonLeafHeader * header = (NonLeafHeader*) buffer; 
-    int n_keys = header->num_pointers;
-    if ( n_keys >= MAX_LEAF_PAIRS )
+    int n_keys = header->num_keys;
+    if ( n_keys >= MAX_NONLEAF_PAIRS )
         return RC_NODE_FULL;
 
     NodePair tmp_pair; 
@@ -314,15 +315,9 @@ RC BTNonLeafNode::insert(int key, PageId pid)
     storage_pair.key = key;
 
     NodePair* pair; 
-    int i = sizeof(NonLeafHeader); 
-    for (;  i < sizeof(NonLeafHeader) + n_keys * sizeof(NodePair); 
-            i += sizeof(NodePair))
+    for (int i = 0; i < n_keys; i++)
     {
-        //WHY ARE WE STARTING AT INDEX 1 AS OPPOSED TO INDEX 0
-        //COULD BE NULL
-        //doesn't this do a swap, not an insertion?
-        pair = (NodePair*) (buffer + i);
-        // should move the entirety of the array, I think. 
+        pair = (NodePair*) (buffer + byteIndexOf(i));
         if ( pair->key > storage_pair.key )
         {
             tmp_pair.key = pair->key;
@@ -336,11 +331,16 @@ RC BTNonLeafNode::insert(int key, PageId pid)
             storage_pair.pid = tmp_pair.pid;
         }
     }
-    pair = (NodePair*)(buffer + i);
+
+    /* TODO: CHECK HOW THE POINTERS WORK. 
+        BECAUSE OF LAST PID. Like do pointers have to shift? 
+        I feel like it does. */
+
+    pair = (NodePair*)(buffer + byteIndexOf(n_keys));
     pair->key = storage_pair.key;
     pair->pid = storage_pair.pid;
 
-    header->num_pointers++;
+    header->num_keys++;
 
     return 0; 
 }
@@ -356,7 +356,70 @@ RC BTNonLeafNode::insert(int key, PageId pid)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, int& midKey)
-{ return 0; }
+{
+    // force sibling to be empty
+    // BTLeafNode node;  
+    // sibling = node;
+    
+    int n_keys = getKeyCount();
+    if (n_keys != MAX_NONLEAF_PAIRS) {
+        return 1;   
+    }
+
+    int loc;
+    //RC val = locate(key, loc); // TODO: do we need to implement something similar? 
+
+    for (int i = 0; i < getKeyCount(); i++)
+    {
+        NodePair* pair = (NodePair*) (buffer + byteIndexOf(i));
+        if (key >= pair->key) // equal case shouldn't ever trigger. 
+        {
+            loc = i;
+            break;
+        }
+    }
+    
+
+    if (loc == (n_keys + 1) / 2)
+    {
+        midKey = key;
+
+        // no need to insert the key pairing? i think? 
+    }
+    else if (loc < (n_keys + 1) / 2)
+    {
+        NodePair* mid_pair = (NodePair*) (buffer + byteIndexOf((n_keys + 1)/2 - 1));
+        midKey = mid_pair->key;
+
+        // TODO: check whether this is the correct insertion. 
+        NodePair* orig_pair = (NodePair*) (buffer + byteIndexOf((n_keys + 1)/2));
+        sibling.insert(orig_pair->key, orig_pair->pid);
+
+        insert(key, pid); // insert the new pair into us. 
+    }
+    else
+    {
+        NodePair* mid_pair = (NodePair*) (buffer + byteIndexOf((n_keys + 1)/2));
+        midKey = mid_pair->key;
+
+        sibling.insert(key, pid); // insert the new pair into sibling. 
+    }
+    
+    // TODO: here, we are using insert as if we are inserting the pid before the key. 
+    //       however, I am not sure if this is the correct usage right now. 
+    // TODO: check how insertion works in this case. 
+    //       I have a feeling we remove the key returned up. 
+    for (int i = (n_keys + 1)/2 + 1; i < n_keys; i++) 
+    {
+        NodePair* orig_pair = (NodePair*) (buffer + byteIndexOf(i));
+        sibling.insert(orig_pair->key, orig_pair->pid);
+    }
+
+    // TODO: there's something about this that I can't figure out?
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
+    header->num_keys = (n_keys+1)/2; // + (loc < (n_keys+1)/2); ?   
+    return 0;
+}
 
 /*
  * Given the searchKey, find the child-node pointer to follow and
@@ -366,7 +429,20 @@ RC BTNonLeafNode::insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, in
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
-{ return 0; }
+{
+    for (int i = 0; i < getKeyCount(); i++)
+    {
+        NodePair* pair = (NodePair*) (buffer + byteIndexOf(i));
+        if ( pair->key < searchKey )
+        {
+            pid = pair->pid;
+            return 0;
+        }
+    }
+    NonLeafHeader* header = (NonLeafHeader*) buffer; 
+    pid = header->last_pid;
+    return 0;
+}
 
 /*
  * Initialize the root node with (pid1, key, pid2).
@@ -376,4 +452,18 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTNonLeafNode::initializeRoot(PageId pid1, int key, PageId pid2)
-{ return 0; }
+{
+    NonLeafHeader* header = (NonLeafHeader*) buffer; 
+    header->num_keys = 1;
+    header->last_pid = pid2;
+
+    NodePair* pair = (NodePair*) (buffer + sizeof(NonLeafHeader));
+    pair->key = key;
+    pair->pid = pid1;
+    return 0;
+}
+
+int BTNonLeafNode::byteIndexOf(int i)
+{
+    return sizeof(NonLeafHeader) + i * sizeof(NodePair);
+}
