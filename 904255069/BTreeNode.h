@@ -13,11 +13,50 @@
 #include "RecordFile.h"
 #include "PageFile.h"
 
+typedef struct {
+  PageId previous_page;
+  int num_keys;
+  PageId next_page;
+  PageId pid;
+} LeafNodeHeader; // 16 bytes. 
+
+typedef struct {
+  RecordId rid; 
+  int key; 
+} LeafPair; // 12 bytes each. 
+
+/**
+  * Here, first_pid will refer to the pointer to the leaf less than the first key. 
+  */
+typedef struct {
+  int num_keys;
+  PageId first_pid;
+} NonLeafHeader; // 8 bytes. 
+
+/**
+  * Here, I will define NodePair as the following. 
+  * The corresponding pid to the key will be the pid of the leaf node following
+  * the key. 
+  * Hence, we have the "first_pid" element in the header. 
+  */
+typedef struct {
+  int key; 
+  PageId pid; 
+} NodePair; // 8 bytes each.  
+
+#define MAX_LEAF_PAIRS (PageFile::PAGE_SIZE - sizeof(LeafNodeHeader)) / sizeof(LeafPair)
+#define MAX_NONLEAF_PAIRS (PageFile::PAGE_SIZE - sizeof(NonLeafHeader)) / sizeof(NodePair)
+
 /**
  * BTLeafNode: The class representing a B+tree leaf node.
  */
 class BTLeafNode {
   public:
+      //default empty constructor, initializes header to empty state stuff
+      BTLeafNode();
+
+      BTLeafNode(PageId prev, PageId next);
+      
    /**
     * Insert the (key, rid) pair to the node.
     * Remember that all keys inside a B+tree node should be kept sorted.
@@ -63,24 +102,32 @@ class BTLeafNode {
     RC readEntry(int eid, int& key, RecordId& rid);
 
    /**
-    * Return the pid of the next slibling node.
+    * Return the pid of the next sibling node.
     * @return the PageId of the next sibling node 
     */
     PageId getNextNodePtr();
 
 
    /**
-    * Set the next slibling node PageId.
+    * Set the next sibling node PageId.
     * @param pid[IN] the PageId of the next sibling node 
     * @return 0 if successful. Return an error code if there is an error.
     */
     RC setNextNodePtr(PageId pid);
 
+    PageId getPrevNodePtr();
+
+    PageId setPrevNodePtr(PageId pid);
+    
+    PageId getPid();
+    
    /**
     * Return the number of keys stored in the node.
     * @return the number of keys in the node
     */
     int getKeyCount();
+   
+  
  
    /**
     * Read the content of the node from the page pid in the PageFile pf.
@@ -104,6 +151,12 @@ class BTLeafNode {
     * that contains the node.
     */
     char buffer[PageFile::PAGE_SIZE];
+
+    /**
+      * A helpful conversion function to determine the byte value 
+      * of the index of LeafPairs to access in the buffer. 
+      */
+    int byteIndexOf(int i);
 }; 
 
 
@@ -182,6 +235,12 @@ class BTNonLeafNode {
     * that contains the node.
     */
     char buffer[PageFile::PAGE_SIZE];
+
+    /**
+      * A helpful conversion function to determine the byte value 
+      * of the index of NodePairs to access in the buffer. 
+      */
+    int byteIndexOf(int i);
 }; 
 
 #endif /* BTREENODE_H */
