@@ -13,6 +13,7 @@
 #include "Bruinbase.h"
 #include "PageFile.h"
 #include "RecordFile.h"
+#include <vector>
              
 /**
  * The data structure to point to a particular entry at a b+tree leaf node.
@@ -99,7 +100,7 @@ class BTreeIndex {
   /// variables in disk, so that they can be reconstructed when the index
   /// is opened again later.
 
-  RC locate(int searchKey, IndexCursor& cursor, PageId cur_page, int level);
+  RC locate(int searchKey, IndexCursor& cursor, PageId cur_page, int level, vector<PageId>& path);
 };
 
 #endif /* BTREEINDEX_H */

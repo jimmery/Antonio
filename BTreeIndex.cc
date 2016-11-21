@@ -72,11 +72,14 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
  */
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
-    return locate(searchKey, cursor, rootPid, 1);
+    vector<PageId> path;
+    return locate(searchKey, cursor, rootPid, 1, path);
 }
 
-RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, PageId cur_page, int level)
+RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, 
+                      PageId cur_page, int level, vector<PageId>& path)
 {
+    path.push_back(cur_page);
     if ( level == treeHeight )
     {
         BTLeafNode leaf;
@@ -97,7 +100,7 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, PageId cur_page, int l
 
     PageId next_page;
     node.locateChildPtr(searchKey, next_page); // currently always returns 0. 
-    return locate(searchKey, cursor, next_page, level + 1);
+    return locate(searchKey, cursor, next_page, level + 1, path);
 }
 
 /*
