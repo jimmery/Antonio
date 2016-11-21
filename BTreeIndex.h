@@ -77,6 +77,7 @@ class BTreeIndex {
    * @return 0 if searchKey is found. Othewise, an error code
    */
   RC locate(int searchKey, IndexCursor& cursor);
+  
 
   /**
    * Read the (key, rid) pair at the location specified by the index cursor,
@@ -97,6 +98,8 @@ class BTreeIndex {
   /// this class is destructed. Make sure to store the values of the two 
   /// variables in disk, so that they can be reconstructed when the index
   /// is opened again later.
+
+  RC locate(int searchKey, IndexCursor& cursor, PageId cur_page, int level);
 };
 
 #endif /* BTREEINDEX_H */

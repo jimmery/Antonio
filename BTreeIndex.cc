@@ -72,7 +72,27 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
  */
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
-    return 0;
+    return locate(searchKey, cursor, rootPid, 1);
+}
+
+RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, PageId cur_page, int level)
+{
+    if ( level == treeHeight )
+    {
+        BTLeafNode leaf;
+        leaf.read(cur_page, pf);
+
+        int eid;
+        int key; 
+        RecordId rid; 
+        RC val = leaf.locate(searchKey, eid);
+        leaf.readEntry(eid, key, rid);
+
+        cursor.pid = cur_page;
+        return val;
+    }
+
+
 }
 
 /*
