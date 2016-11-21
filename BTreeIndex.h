@@ -100,7 +100,7 @@ class BTreeIndex {
   /// variables in disk, so that they can be reconstructed when the index
   /// is opened again later.
 
-  RC locate(int searchKey, IndexCursor& cursor, PageId cur_page, int level, vector<PageId>& path);
+  RC locate(int searchKey, IndexCursor& cursor, PageId cur_page, int level, std::vector<PageId>& path);
 };
 
 #endif /* BTREEINDEX_H */
