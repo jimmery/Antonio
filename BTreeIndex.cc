@@ -29,7 +29,7 @@ BTreeIndex::BTreeIndex()
  */
 RC BTreeIndex::open(const string& indexname, char mode)
 {
-    return 0;
+    return pf.open(indexname, mode);
 }
 
 /*
@@ -38,7 +38,7 @@ RC BTreeIndex::open(const string& indexname, char mode)
  */
 RC BTreeIndex::close()
 {
-    return 0;
+    return pf.close();;
 }
 
 /*
@@ -49,7 +49,29 @@ RC BTreeIndex::close()
  */
 RC BTreeIndex::insert(int key, const RecordId& rid)
 {
+    non_leaf_node.read(rootPid, pf); // read the root value. 
+    // if the root successfully inserts, then we are done. 
+    if (!non_leaf_node.insert(key, rid.pid))
+        return 0;
+    
+    // is this sufficient to do everything? now that i think about it? 
+    BTNonLeafNode new_node;
+    int mid_key;
+    RC rc = non_leaf_node.insertAndSplit(key, rid.pid, new_node, mid_key);
+
     return 0;
+}
+
+// this might be deprecated. not sure. 
+// i feel like we're missing that case with leaf nodes though. huh. 
+RC BTreeIndex::insert(int key, const Record& rid, int level, PageId pid)
+{
+    if ( level == treeHeight )
+    {
+        leaf_node.read(pid, pf);
+
+    }
+
 }
 
 /**
