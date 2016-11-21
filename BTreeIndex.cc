@@ -105,5 +105,8 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, PageId cur_page, int l
  */
 RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
 {
-    return 0;
+    BTLeafNode leaf;
+    int successfulRead = leaf.readEntry(cursor.eid, key, rid);
+    leaf.locate(key+1, cursor.eid);
+    return successfulRead;
 }
