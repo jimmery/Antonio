@@ -49,7 +49,55 @@ RC BTreeIndex::close()
  */
 RC BTreeIndex::insert(int key, const RecordId& rid)
 {
-    return 0;
+    IndexCursor cursor;
+    vector<PageId> path;
+    locate(key, cursor, rootPid, 1, path);
+    PageId leafId = path.back();
+    path.pop_back();
+    BTLeafNode leaf;
+    leaf.read(leafId, pf);
+    BTLeafNode sibling;
+    int siblingKey;
+    
+    if (leaf.insert(key, rid)) {
+        leaf.insertAndSplit(key, rid, sibling, siblingKey);
+        leaf.write(leaf.getPid(), pf);
+        
+        //right now sibling pid isn't set.
+        //TODO: FIX THIS
+        sibling.write(sibling.getPid(), pf);
+        BTNonLeafNode parent;
+        PageId parentId = path.back();
+        path.pop_back();
+        parent.read(parentId, pf);
+        while (parent.insert(siblingKey, sibling.getPid())) {
+            BTNonLeafNode siblingNonLeaf;
+            int midKey;
+            parent.insertAndSplit(siblingKey, sibling.getPid(), siblingNonLeaf, midKey);
+            
+            parent.write(parentId, pf);
+            
+            siblingKey = midKey;
+            parentId = path.back();
+            path.pop_back();
+            
+            parent.read(parentId, pf);
+        }
+        parent.write(parentId, pf);
+    } else {
+        leaf.write(leaf.getPid(), pf);
+    }
+    
+    // disregard
+    for (int i = 0; i < path.size()-1; i++) {
+        BTNonLeafNode node;
+        if (node.insert(key, rid)) {
+            node.insertAndSplit(key, rid);
+            BTLeafNode leaf;
+            if (leaf.insert(key, rid))
+                leaf.insertAndSplit(key, rid);
+        }
+    }
 }
 
 /**
