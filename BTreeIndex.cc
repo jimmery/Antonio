@@ -92,7 +92,12 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, PageId cur_page, int l
         return val;
     }
 
+    BTNonLeafNode node;
+    node.read(cur_page, pf);
 
+    PageId next_page;
+    node.locateChildPtr(searchKey, next_page); // currently always returns 0. 
+    return locate(searchKey, cursor, next_page, level + 1);
 }
 
 /*
@@ -105,5 +110,6 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, PageId cur_page, int l
  */
 RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
 {
+
     return 0;
 }
