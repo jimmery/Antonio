@@ -29,7 +29,40 @@ BTreeIndex::BTreeIndex()
  */
 RC BTreeIndex::open(const string& indexname, char mode)
 {
+<<<<<<< HEAD
     return pf.open(indexname, mode);
+=======
+    RC rc = pf.open(indexname, mode);
+    if (rc)
+        return rc;
+    
+    if (pf.endPid() == 0)
+    {
+        // initialize a new index. 
+        treeHeight = 0;
+    } 
+    else
+    {
+        // here, we assume that the page file contains an index. 
+        char * buffer; 
+
+        // we put the Header in this file.
+        rc = pf.read(0, buffer);  
+        if (rc) 
+        {
+            return rc;
+        }
+
+        Header* header = (Header *)buffer; 
+        if ( !header->initialized )
+        {
+            return 1; // something is wrong with the buffer setup.
+        } 
+        treeHeight = header->treeHeight;
+        rootPid = header->rootPid;
+    }
+    return 0;
+>>>>>>> a9e08199294aff0a84ee7bceb5d5a1f01526d0f0
 }
 
 /*
@@ -38,7 +71,26 @@ RC BTreeIndex::open(const string& indexname, char mode)
  */
 RC BTreeIndex::close()
 {
+<<<<<<< HEAD
     return pf.close();;
+=======
+    // this code puts all the information back into the page file. 
+    // the problem with this code may be that there are atomicity issues in the future. 
+    // we are not sure how the read write privileges provided by page file works 
+    // so we don't want to guarantee that our code will remain this way. 
+    char * buffer; 
+    RC rc = pf.read(0, buffer);
+    if (rc)
+        return rc;
+    Header* header = (Header *)buffer; 
+    header->initialized = true;
+    header->treeHeight = treeHeight;
+    header->rootPid = rootPid;
+    rc = pf.write(0, buffer);
+    if (rc)
+        return rc;
+    return pf.close();
+>>>>>>> a9e08199294aff0a84ee7bceb5d5a1f01526d0f0
 }
 
 /*
@@ -49,6 +101,7 @@ RC BTreeIndex::close()
  */
 RC BTreeIndex::insert(int key, const RecordId& rid)
 {
+<<<<<<< HEAD
     non_leaf_node.read(rootPid, pf); // read the root value. 
     // if the root successfully inserts, then we are done. 
     if (!non_leaf_node.insert(key, rid.pid))
@@ -59,6 +112,94 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
     int mid_key;
     RC rc = non_leaf_node.insertAndSplit(key, rid.pid, new_node, mid_key);
 
+=======
+    if (treeHeight == 0) {
+        //initialize a new tree
+        // we assume a new tree will have its root be a leaf. 
+        BTLeafNode root;
+        rootPid = 1;
+        root.write(rootPid, pf);
+        treeHeight = 1;
+        root.insert(key, rid);
+    } else {
+        IndexCursor cursor;
+        vector<PageId> path;
+        // sets path and cursor. 
+        locate(key, cursor, rootPid, 1, path);
+        PageId leafId = path.back();
+        path.pop_back();
+        BTLeafNode leaf;
+        leaf.read(leafId, pf);
+
+
+        if (leaf.insert(key, rid)) { 
+            BTLeafNode sibling;
+            int siblingKey;
+            leaf.insertAndSplit(key, rid, sibling, siblingKey);
+
+            // save the new leaves. 
+            leaf.write(leaf.getPid(), pf);
+            sibling.write(pf.endPid(), pf);
+
+            BTNonLeafNode parent;
+
+            if (path.empty())
+            {
+                // creates the first nonleaf root. 
+                PageId new_root_id = pf.endPid();
+                BTNonLeafNode new_root;
+                treeHeight++;
+                rootPid = new_root_id;
+                new_root.read(new_root_id, pf);
+                new_root.initializeRoot(leafId, siblingKey, sibling.getPid());
+                new_root.write(new_root_id, pf);
+            }
+            else
+            {
+                // propogate up the new key to add into stuff. 
+                PageId parentId = path.back(); 
+                path.pop_back();
+                parent.read(parentId, pf);
+            
+                // we need to insert the sibling's key into the parent. 
+                while (parent.insert(siblingKey, sibling.getPid())) {
+                    BTNonLeafNode siblingNonLeaf;
+                    int midKey;
+                    parent.insertAndSplit(siblingKey, sibling.getPid(), siblingNonLeaf, midKey);
+
+                    parent.write(parentId, pf);
+                    PageId siblingId = pf.endPid();
+                    siblingNonLeaf.write(siblingId, pf);
+
+                    if (path.empty()) {
+                        //leaf is old root node, 
+                        //need to increase tree height,
+                        //create new root node
+                        //update first page in pagefile to say where new root node is
+                        BTNonLeafNode newRoot;
+                        PageId newRootId = pf.endPid();
+                        treeHeight++;
+                        rootPid = newRootId;
+                        newRoot.write(newRootId, pf);
+                        newRoot.initializeRoot(parentId, midKey, siblingId);
+                        break;
+                    } else {
+                        // we still have parents to go up to. 
+                        // and we still have to split. 
+                        siblingKey = midKey;
+                        parentId = path.back();
+                        path.pop_back();
+
+                        parent.read(parentId, pf);
+                    }
+                }
+            parent.write(parentId, pf);
+            }
+        } else {
+            leaf.write(leaf.getPid(), pf);
+        }
+    }
+>>>>>>> a9e08199294aff0a84ee7bceb5d5a1f01526d0f0
     return 0;
 }
 
@@ -94,7 +235,50 @@ RC BTreeIndex::insert(int key, const Record& rid, int level, PageId pid)
  */
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
-    return 0;
+    vector<PageId> path;
+    return locate(searchKey, cursor, rootPid, 1, path);
+}
+
+/**
+ * Run the standard B+Tree key search algorithm and identify the
+ * leaf node where searchKey may exist. This is simply a recursive
+ * helper function that allows us to have slightly more control
+ * over the parameters that we want to have input and output for 
+ * easier coding purposes. 
+ * @param key[IN] the key to find
+ * @param cursor[OUT] the cursor pointing to the index entry with
+ *                    searchKey or immediately behind the largest key
+ *                    smaller than searchKey.
+ * @param cur_page[IN] the current page id of the node we are looking at. 
+ * @param level[IN] the current level of the B+-tree we are looking at. 
+ * @param path[OUT] the "lineage" of the search we have gone through in the past. 
+ * @return 0 if searchKey is found. Othewise an error code
+ */
+RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, 
+                      PageId cur_page, int level, vector<PageId>& path)
+{
+    path.push_back(cur_page);
+    if ( level == treeHeight )
+    {
+        BTLeafNode leaf;
+        leaf.read(cur_page, pf);
+
+        int eid;
+        int key; 
+        RecordId rid; 
+        RC val = leaf.locate(searchKey, eid);
+        leaf.readEntry(eid, key, rid);
+
+        cursor.pid = cur_page;
+        return val;
+    }
+
+    BTNonLeafNode node;
+    node.read(cur_page, pf);
+
+    PageId next_page;
+    node.locateChildPtr(searchKey, next_page); // currently always returns 0. 
+    return locate(searchKey, cursor, next_page, level + 1, path);
 }
 
 /*
@@ -107,5 +291,8 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
  */
 RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
 {
-    return 0;
+    BTLeafNode leaf;
+    RC successfulRead = leaf.readEntry(cursor.eid, key, rid);
+    leaf.locate(key+1, cursor.eid);
+    return successfulRead;
 }
