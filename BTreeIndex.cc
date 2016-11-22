@@ -29,7 +29,28 @@ BTreeIndex::BTreeIndex()
  */
 RC BTreeIndex::open(const string& indexname, char mode)
 {
-    return pf.open(indexname, mode);
+    RC rc = pf.open(indexname, mode);
+    if (rc)
+        return rc;
+    
+    if (pf.endPid() == 0)
+    {
+        // initialize a new index. 
+        treeHeight = 0;
+    } 
+    else
+    {
+        char * buffer; 
+        rc = pf.read(0, buffer);
+        if (rc)
+            return rc;
+        Header* header = (Header *)buffer; 
+        if ( !header->initialized )
+            return 1; // something is wrong with the buffer setup. 
+        treeHeight = header->treeHeight;
+        rootPid = header->rootPid;
+    }
+    return 0;
 }
 
 /*
@@ -38,6 +59,17 @@ RC BTreeIndex::open(const string& indexname, char mode)
  */
 RC BTreeIndex::close()
 {
+    char * buffer; 
+    RC rc = pf.read(0, buffer);
+    if (rc)
+        return rc;
+    Header* header = (Header *)buffer; 
+    header->initialized = true;
+    header->treeHeight = treeHeight;
+    header->rootPid = rootPid;
+    rc = pf.write(0, buffer);
+    if (rc)
+        return rc;
     return pf.close();
 }
 
@@ -87,6 +119,7 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
     } else {
         leaf.write(leaf.getPid(), pf);
     }
+    return 0;
 }
 
 /**

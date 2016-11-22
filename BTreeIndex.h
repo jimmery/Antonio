@@ -28,6 +28,12 @@ typedef struct {
   int     eid;  
 } IndexCursor;
 
+typedef struct {
+    bool initialized;
+    PageId rootPid;
+    int treeHeight;
+} Header;
+
 /**
  * Implements a B-Tree index for bruinbase.
  * 
