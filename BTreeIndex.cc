@@ -87,17 +87,6 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
     } else {
         leaf.write(leaf.getPid(), pf);
     }
-    
-    // disregard
-    for (int i = 0; i < path.size()-1; i++) {
-        BTNonLeafNode node;
-        if (node.insert(key, rid)) {
-            node.insertAndSplit(key, rid);
-            BTLeafNode leaf;
-            if (leaf.insert(key, rid))
-                leaf.insertAndSplit(key, rid);
-        }
-    }
 }
 
 /**
