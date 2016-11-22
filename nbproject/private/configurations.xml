@@ -44,7 +44,6 @@
       <in>SqlEngine.cc</in>
       <in>SqlEngine.h</in>
       <in>SqlParser.tab.c</in>
-      <in>SqlParser.tab.h</in>
       <in>lex.sql.c</in>
       <in>main.cc</in>
     </df>

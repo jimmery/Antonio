@@ -49,43 +49,66 @@ RC BTreeIndex::close()
  */
 RC BTreeIndex::insert(int key, const RecordId& rid)
 {
-    IndexCursor cursor;
-    vector<PageId> path;
-    locate(key, cursor, rootPid, 1, path);
-    PageId leafId = path.back();
-    path.pop_back();
-    BTLeafNode leaf;
-    leaf.read(leafId, pf);
-    BTLeafNode sibling;
-    int siblingKey;
-    
-    if (leaf.insert(key, rid)) {
-        leaf.insertAndSplit(key, rid, sibling, siblingKey);
-        leaf.write(leaf.getPid(), pf);
-        
-        //right now sibling pid isn't set.
-        //TODO: FIX THIS
-        sibling.write(sibling.getPid(), pf);
-        BTNonLeafNode parent;
-        PageId parentId = path.back();
-        path.pop_back();
-        parent.read(parentId, pf);
-        while (parent.insert(siblingKey, sibling.getPid())) {
-            BTNonLeafNode siblingNonLeaf;
-            int midKey;
-            parent.insertAndSplit(siblingKey, sibling.getPid(), siblingNonLeaf, midKey);
-            
-            parent.write(parentId, pf);
-            
-            siblingKey = midKey;
-            parentId = path.back();
-            path.pop_back();
-            
-            parent.read(parentId, pf);
-        }
-        parent.write(parentId, pf);
+    if (treeHeight == 0) {
+        //initialize a new tree
+        BTLeafNode root;
+        rootPid = 1;
+        root.write(rootPid, pf);
+        treeHeight = 1;
+        root.insert(key, rid);
     } else {
-        leaf.write(leaf.getPid(), pf);
+        IndexCursor cursor;
+        vector<PageId> path;
+        locate(key, cursor, rootPid, 1, path);
+        PageId leafId = path.back();
+        path.pop_back();
+        BTLeafNode leaf;
+        leaf.read(leafId, pf);
+        BTLeafNode sibling;
+        int siblingKey;
+
+        if (leaf.insert(key, rid)) {
+            leaf.insertAndSplit(key, rid, sibling, siblingKey);
+            leaf.write(leaf.getPid(), pf);
+
+            sibling.write(pf.endPid(), pf);
+            BTNonLeafNode parent;
+            PageId parentId = path.back();
+            path.pop_back();
+            parent.read(parentId, pf);
+            while (parent.insert(siblingKey, sibling.getPid())) {
+                BTNonLeafNode siblingNonLeaf;
+                int midKey;
+                parent.insertAndSplit(siblingKey, sibling.getPid(), siblingNonLeaf, midKey);
+
+                parent.write(parentId, pf);
+                PageId siblingId = pf.endPid();
+                siblingNonLeaf.write(siblingId, pf);
+
+                if (path.empty()) {
+                    //leaf is old root node, 
+                    //need to increase tree height,
+                    //create new root node
+                    //update first page in pagefile to say where new root node is
+                    BTNonLeafNode newRoot;
+                    PageId newRootId = pf.endPid();
+                    treeHeight++;
+                    rootPid = newRootId;
+                    newRoot.write(newRootId, pf);
+                    newRoot.initializeRoot(parentId, midKey, siblingId);
+                    break;
+                } else {
+                    siblingKey = midKey;
+                    parentId = path.back();
+                    path.pop_back();
+
+                    parent.read(parentId, pf);
+                }
+            }
+            parent.write(parentId, pf);
+        } else {
+            leaf.write(leaf.getPid(), pf);
+        }
     }
 }
 
