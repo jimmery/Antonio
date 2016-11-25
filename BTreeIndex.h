@@ -64,6 +64,7 @@ class BTreeIndex {
    * @return error code. 0 if no error
    */
   RC insert(int key, const RecordId& rid);
+  RC insert(int key, const Record& rid, int level, PageId pid)
 
   /**
    * Run the standard B+Tree key search algorithm and identify the
@@ -105,6 +106,7 @@ class BTreeIndex {
   /// this class is destructed. Make sure to store the values of the two 
   /// variables in disk, so that they can be reconstructed when the index
   /// is opened again later.
+
 
   RC locate(int searchKey, IndexCursor& cursor, PageId cur_page, int level, std::vector<PageId>& path);
 };
