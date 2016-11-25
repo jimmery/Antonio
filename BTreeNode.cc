@@ -466,7 +466,7 @@ RC BTNonLeafNode::insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, in
     
     if (loc < header->num_keys)
         insert(key, pid); // insert the new pair into us. 
-    }
+    
     return 0;
 }
 

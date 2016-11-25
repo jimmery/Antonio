@@ -455,17 +455,18 @@ RC BTNonLeafNode::insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, in
     //       however, I am not sure if this is the correct usage right now. 
     // TODO: check how insertion works in this case. 
     //       I have a feeling we remove the key returned up. 
+    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
     for (int i = (n_keys + 1)/2 + 2; i < n_keys; i++) 
     {
         NodePair* orig_pair = (NodePair*) (buffer + byteIndexOf(i));
         sibling.insert(orig_pair->key, orig_pair->pid);
+        header->num_keys--;
     }
 
-    // TODO: there's something about this that I can't figure out?
-    LeafNodeHeader* header = (LeafNodeHeader*) buffer;
-    header->num_keys = (n_keys+1)/2; // + (loc < (n_keys+1)/2); ? 
-    if (loc < (n_keys + 1) / 2)
+    
+    if (loc < header->num_keys)
         insert(key, pid); // insert the new pair into us. 
+    
     return 0;
 }
 

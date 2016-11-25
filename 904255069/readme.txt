@@ -42,7 +42,7 @@ Implememtation Details:
 Implementation Details: 
     We simply implemented the three functions that we were supposed to. 
     
-    There were a couple things that we found that became complications. 
+    There were a couple things that we found that became complications and solutions. 
     1. Initialization of treeHeight and rootPid. 
         As we realized that we could read and write to any page file, we wanted to somehow
         write the treeHeight and rootPid value to the page file somehow. We took the easy 
@@ -53,3 +53,6 @@ Implementation Details:
         actually learned how to initialize a B+-tree. Thus, we came to the conclusion that
         we will be using a leaf node as the root until it fills up, which then it will have
         a nonleaf root. 
+    3. Maintaining a path of lineage for the locate function to help with insertion. 
+        We additionally created a helper fuction for locate to allow us to implement the
+        locate method recursively. 
