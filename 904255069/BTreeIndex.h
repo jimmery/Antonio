@@ -13,6 +13,7 @@
 #include "Bruinbase.h"
 #include "PageFile.h"
 #include "RecordFile.h"
+#include <vector>
              
 /**
  * The data structure to point to a particular entry at a b+tree leaf node.
@@ -26,6 +27,12 @@ typedef struct {
   // The entry number inside the node
   int     eid;  
 } IndexCursor;
+
+typedef struct {
+    bool initialized;
+    PageId rootPid;
+    int treeHeight;
+} Header;
 
 /**
  * Implements a B-Tree index for bruinbase.
@@ -77,6 +84,7 @@ class BTreeIndex {
    * @return 0 if searchKey is found. Othewise, an error code
    */
   RC locate(int searchKey, IndexCursor& cursor);
+  
 
   /**
    * Read the (key, rid) pair at the location specified by the index cursor,
@@ -97,6 +105,8 @@ class BTreeIndex {
   /// this class is destructed. Make sure to store the values of the two 
   /// variables in disk, so that they can be reconstructed when the index
   /// is opened again later.
+
+  RC locate(int searchKey, IndexCursor& cursor, PageId cur_page, int level, std::vector<PageId>& path);
 };
 
 #endif /* BTREEINDEX_H */
