@@ -29,9 +29,7 @@ BTreeIndex::BTreeIndex()
  */
 RC BTreeIndex::open(const string& indexname, char mode)
 {
-<<<<<<< HEAD
-    return pf.open(indexname, mode);
-=======
+
     RC rc = pf.open(indexname, mode);
     if (rc)
         return rc;
@@ -62,7 +60,6 @@ RC BTreeIndex::open(const string& indexname, char mode)
         rootPid = header->rootPid;
     }
     return 0;
->>>>>>> a9e08199294aff0a84ee7bceb5d5a1f01526d0f0
 }
 
 /*
@@ -71,9 +68,7 @@ RC BTreeIndex::open(const string& indexname, char mode)
  */
 RC BTreeIndex::close()
 {
-<<<<<<< HEAD
-    return pf.close();;
-=======
+
     // this code puts all the information back into the page file. 
     // the problem with this code may be that there are atomicity issues in the future. 
     // we are not sure how the read write privileges provided by page file works 
@@ -90,7 +85,6 @@ RC BTreeIndex::close()
     if (rc)
         return rc;
     return pf.close();
->>>>>>> a9e08199294aff0a84ee7bceb5d5a1f01526d0f0
 }
 
 /*
@@ -101,18 +95,6 @@ RC BTreeIndex::close()
  */
 RC BTreeIndex::insert(int key, const RecordId& rid)
 {
-<<<<<<< HEAD
-    non_leaf_node.read(rootPid, pf); // read the root value. 
-    // if the root successfully inserts, then we are done. 
-    if (!non_leaf_node.insert(key, rid.pid))
-        return 0;
-    
-    // is this sufficient to do everything? now that i think about it? 
-    BTNonLeafNode new_node;
-    int mid_key;
-    RC rc = non_leaf_node.insertAndSplit(key, rid.pid, new_node, mid_key);
-
-=======
     if (treeHeight == 0) {
         //initialize a new tree
         // we assume a new tree will have its root be a leaf. 
@@ -199,7 +181,6 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
             leaf.write(leaf.getPid(), pf);
         }
     }
->>>>>>> a9e08199294aff0a84ee7bceb5d5a1f01526d0f0
     return 0;
 }
 
