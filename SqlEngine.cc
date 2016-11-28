@@ -135,9 +135,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
 {
   /* your code here */
   RC rc; 
-
-  if ( index )
-    return -1; // we won't deal with this case right now. 
+  BTreeIndex bt;  
 
   fstream myfile;
   myfile.open(loadfile.c_str());
@@ -149,6 +147,11 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
   rc = rfile.open((table + ".tbl"), 'w');
   if (rc < 0)
     return rc;
+
+  if (index)
+  {
+    rc = bt.open((table + ".idx"), 'w');
+  }
   // string key_string, value;
   // int key; 
   // while (getline(myfile, key_string, ',') && getline(myfile, value))
@@ -166,6 +169,8 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
     rc = parseLoadLine(line, key, value);
     rfile.append(key, value, rid); 
     // figure out what to do with rid? is that for the index? 
+    if (index)
+      bt.insert(key, rid);
   }
   
   myfile.close();
