@@ -46,7 +46,109 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   int    count;
   int    diff;
 
-  // open the table file
+  // open the BTreeIndex. 
+  BTreeIndex bt; 
+  rc = bt.open(table + ".idx", 'r');
+  if (rc < 0) {
+    fprintf(stdout, "No index %s found, using table search.\n", table.c_str());
+    goto read_all;
+  }
+
+  // the new stuff. if we do in fact find that there is an index. 
+  // TODO figure out how to initialize these values? 
+
+  // save the min/max value of the key (inclusive)
+  int min_key;
+  int max_key;
+
+  // TODO figure this out. for now. 
+  char* min_value; 
+  char* max_value;
+
+  for (unsigned i = 0; i < cond.size(); i++)
+  {
+    SelCond sc = cond[i];
+    switch(sc.comp) {
+    case SelCond::EQ:
+      if (sc.attr == 1) {
+        // TODO case when it's already outside current range.
+        min_key = atoi(cond[i].value);
+        max_key = min_key;
+      } 
+      else if (sc.attr == 2) {
+        min_value = cond[i].value;
+        max_value = min_value; 
+      }
+      break;
+    case SelCond::NE:
+      // TODO figure this out. 
+      break;
+    case SelCond::GT:
+      if (sc.attr == 1) {
+        key = atoi(cond[i].value)
+        if (min_key < key + 1)
+          min_key = key + 1;
+      }
+      break;
+    case SelCond::LT:
+      if (sc.attr == 1) {
+        key = atoi(cond[i].value)
+        if (max_key > key - 1)
+          max_key = key - 1;
+      }
+      break;
+    case SelCond::GE:
+      if (sc.attr == 1) {
+        key = atoi(cond[i].value)
+        if (min_key < key)
+          min_key = key;
+      }
+      break;
+    case SelCond::LE:
+      if (sc.attr == 1) {
+        key = atoi(cond[i].value)
+        if (max_key > key)
+          max_key = key;
+      }
+      break;
+    }
+  }
+
+  IndexCursor ic;
+  rc = bt.locate(min_key, ic);
+  key = min_key;
+  count = 0;
+
+  while (key < max_key) {  
+    count++;
+    switch (attr) {
+    case 1:  // SELECT key
+      // do not need a read, since we have the key. 
+      fprintf(stdout, "%d\n", key);
+      break;
+    case 2:  // SELECT value
+      // do a read to get the value. 
+      rid.pid = ic.pid;
+      rid.sid = ic.eid; // TODO check this. 
+      rf.read(rid, key, value);
+      fprintf(stdout, "%s\n", value.c_str());
+      break;
+    case 3:  // SELECT *
+      // do a read to get the value. 
+      rid.pid = ic.pid;
+      rid.sid = ic.eid; // TODO check this. 
+      rf.read(rid, key, value);
+      fprintf(stdout, "%d '%s'\n", key, value.c_str());
+      break;
+    }
+    bt.readForward(ic, key, rid); 
+    // TODO we should most definitely change readForward, I think.
+  }
+  //TODO define an exit select? 
+  return rc;
+
+  read_all: 
+      // open the table file
   if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
     fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
     return rc;
@@ -67,33 +169,33 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
       // compute the difference between the tuple value and the condition value
       switch (cond[i].attr) {
       case 1:
-	diff = key - atoi(cond[i].value);
-	break;
+        diff = key - atoi(cond[i].value);
+        break;
       case 2:
-	diff = strcmp(value.c_str(), cond[i].value);
-	break;
+        diff = strcmp(value.c_str(), cond[i].value);
+        break;
       }
 
       // skip the tuple if any condition is not met
       switch (cond[i].comp) {
       case SelCond::EQ:
-	if (diff != 0) goto next_tuple;
-	break;
+        if (diff != 0) goto next_tuple;
+        break;
       case SelCond::NE:
-	if (diff == 0) goto next_tuple;
-	break;
+        if (diff == 0) goto next_tuple;
+        break;
       case SelCond::GT:
-	if (diff <= 0) goto next_tuple;
-	break;
+        if (diff <= 0) goto next_tuple;
+        break;
       case SelCond::LT:
-	if (diff >= 0) goto next_tuple;
-	break;
+        if (diff >= 0) goto next_tuple;
+        break;
       case SelCond::GE:
-	if (diff < 0) goto next_tuple;
-	break;
+        if (diff < 0) goto next_tuple;
+        break;
       case SelCond::LE:
-	if (diff > 0) goto next_tuple;
-	break;
+        if (diff > 0) goto next_tuple;
+        break;
       }
     }
 
@@ -140,7 +242,7 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
   fstream myfile;
   myfile.open(loadfile.c_str());
   if (!myfile.is_open()) 
-    return -1; // something went wrong with the IO. 
+    return RC_FILE_OPEN_FAILED; // something went wrong with the IO. 
 
   
   RecordFile rfile; 
@@ -151,14 +253,9 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
   if (index)
   {
     rc = bt.open((table + ".idx"), 'w');
+    if (rc < 0)
+      return rc;
   }
-  // string key_string, value;
-  // int key; 
-  // while (getline(myfile, key_string, ',') && getline(myfile, value))
-  // {
-  //   key = atoi(key_string);
-  //   rfile.append(key, value, 0);
-  // }
 
   string line;
   int key;
