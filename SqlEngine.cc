@@ -38,6 +38,7 @@ RC SqlEngine::run(FILE* commandline)
 
 RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 {
+  fprintf(stdout, "START OF SELECT attr: %d, table name: %s\n", attr, table.c_str());
   RecordFile rf;   // RecordFile containing the table
   RecordId   rid;  // record cursor for table scanning
 
@@ -53,12 +54,17 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   bool conflicting_conditions;
 
   // open the BTreeIndex. 
-  BTreeIndex bt; 
+  BTreeIndex bt;
+  //string table_name = table.c_str();
+  fprintf(stdout, "BEFOPEN\n");
   rc = bt.open(table + ".idx", 'r');
+  fprintf(stdout, "kill me know\n");
   if (rc < 0) {
     fprintf(stdout, "No index %s found, using table search.\n", table.c_str());
     goto read_all;
   }
+
+  fprintf(stdout, "YOOOOOOO\n");
 
   // the new stuff. if we do in fact find that there is an index. 
   // TODO figure out how to initialize these values? 

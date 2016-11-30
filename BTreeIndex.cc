@@ -47,21 +47,31 @@ RC BTreeIndex::open(const string& indexname, char mode)
         // here, we assume that the page file contains an index. 
         char * buffer; 
         fprintf(stdout, "pf.endPid(): %d\n", pf.endPid());
+        fprintf(stdout, "fd: %d\n", pf.fd);
+        fprintf(stdout, "clk: %d\n", pf.cacheClock);
         // we put the Header in this file.
         rc = pf.read(0, buffer);  
+        fprintf(stdout, "AFTER READ: pf.endPid(): %d\n", pf.epid);
+        fprintf(stdout, "AFTER READ: fd: %d\n", pf.fd);
+        fprintf(stdout, "AFTER READ: clk: %d\n", pf.cacheClock);
         if (rc) 
         {
             return rc;
         }
 
         Header* header = (Header *)buffer; 
-        if ( !header->initialized )
+        if ( !(header->initialized) )
         {
+            fprintf(stdout, "this thing isn't initialized?!\n");
             return 1; // something is wrong with the buffer setup.
         } 
+        fprintf(stdout, "bruh\n");
         treeHeight = header->treeHeight;
+        fprintf(stdout, "treeheight: %d\n", treeHeight);
         rootPid = header->rootPid;
+        fprintf(stdout, "rootPid: %d\n", rootPid);
     }
+    fprintf(stdout, "fml\n");
     return 0;
 }
 
@@ -76,22 +86,17 @@ RC BTreeIndex::close()
     // we are not sure how the read write privileges provided by page file works 
     // so we don't want to guarantee that our code will remain this way. 
     RC rc;
-    char * buffer; 
-    
-    if ( creatree ) {
-        buffer = new char[PageFile::PAGE_SIZE];
-    }
-    else
-    {
-        rc = pf.read(0, buffer);
-        if (rc)
-            return rc;   
-    }
+    char buffer[PageFile::PAGE_SIZE]; 
+    rc = pf.read(0, buffer);
+    if (rc)
+        return rc;   
     
     Header* header = (Header *)buffer; 
     header->initialized = true;
     header->treeHeight = treeHeight;
     header->rootPid = rootPid;
+    fprintf(stdout, "treeheight: %d\n", treeHeight);
+    fprintf(stdout, "rootPid: %d\n", rootPid);
     fprintf(stdout, "IN CLOSE: pf.endPid(): %d\n", pf.endPid());
     rc = pf.write(0, buffer);
     if (rc)

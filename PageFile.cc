@@ -13,8 +13,11 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <iostream>
+#include <fstream>
 
 using std::string;
+using namespace std;
 
 int PageFile::readCount = 0;
 int PageFile::writeCount = 0;
@@ -136,7 +139,7 @@ RC PageFile::read(PageId pid, void* buffer) const
   RC rc;
 
   if (pid < 0 || pid >= epid) return RC_INVALID_PID; 
-
+  fprintf(stdout, "1. epid: %d\n", epid);
   //
   // if the page is in cache, read it from there
   //
@@ -148,10 +151,10 @@ RC PageFile::read(PageId pid, void* buffer) const
        return 0;
     }
   }
-
+  fprintf(stdout, "2. epid: %d\n", epid);
   // seek to the page
   if ((rc = seek(pid)) < 0) return rc;
-  
+  fprintf(stdout, "3. epid: %d\n", epid);
   // find the cache slot to evict
   int toEvict = 0; 
   for (int i = 0; i < CACHE_COUNT; i++) {
@@ -163,6 +166,7 @@ RC PageFile::read(PageId pid, void* buffer) const
       toEvict = i;
     }
   }
+  fprintf(stdout, "4. epid: %d\n", epid);
   readCache[toEvict].fd = fd;
   readCache[toEvict].pid = pid;
   readCache[toEvict].lastAccessed = ++cacheClock;
@@ -171,8 +175,9 @@ RC PageFile::read(PageId pid, void* buffer) const
   if (::read(fd, readCache[toEvict].buffer, PAGE_SIZE) < 0) {
     return RC_FILE_READ_FAILED;
   }
+  fprintf(stdout, "5. epid: %d\n", epid);
   memcpy(buffer, readCache[toEvict].buffer, PAGE_SIZE);
-
+  fprintf(stdout, "6. epid: %d\n", epid);
   // increase the page read count
   readCount++;
 
