@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <climits>
 #include <iostream>
 #include <fstream>
 #include "Bruinbase.h"
@@ -58,68 +59,102 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   // TODO figure out how to initialize these values? 
 
   // save the min/max value of the key (inclusive)
-  int min_key;
-  int max_key;
-
+  int min_key = INT_MIN;
+  int max_key = INT_MAX;
+  bool conflicting_conditions = false;
+  
   // TODO figure this out. for now. 
   char* min_value; 
   char* max_value;
 
+  
+  //=======================================
+  // finding upper and lower bounds
   for (unsigned i = 0; i < cond.size(); i++)
   {
     SelCond sc = cond[i];
-    switch(sc.comp) {
-    case SelCond::EQ:
-      if (sc.attr == 1) {
-        // TODO case when it's already outside current range.
-        min_key = atoi(cond[i].value);
-        max_key = min_key;
-      } 
-      else if (sc.attr == 2) {
-        min_value = cond[i].value;
-        max_value = min_value; 
-      }
-      break;
-    case SelCond::NE:
-      // TODO figure this out. 
-      break;
-    case SelCond::GT:
-      if (sc.attr == 1) {
-        key = atoi(cond[i].value)
-        if (min_key < key + 1)
-          min_key = key + 1;
-      }
-      break;
-    case SelCond::LT:
-      if (sc.attr == 1) {
-        key = atoi(cond[i].value)
-        if (max_key > key - 1)
-          max_key = key - 1;
-      }
-      break;
-    case SelCond::GE:
-      if (sc.attr == 1) {
-        key = atoi(cond[i].value)
-        if (min_key < key)
-          min_key = key;
-      }
-      break;
-    case SelCond::LE:
-      if (sc.attr == 1) {
-        key = atoi(cond[i].value)
-        if (max_key > key)
-          max_key = key;
-      }
-      break;
+    if (sc.attr == 1) {
+        // this flag indicates whether or not the condition was used to constrain
+        // the min/max key bounds. This is useful for determining if we can 
+        // remove the condition from the cond vector
+        bool used_condition = true;
+        
+        switch(sc.comp) {
+        case SelCond::EQ:
+            key = atoi(cond[i].value);
+            if (key < min_key || key > max_key) {
+                // constraint conflict. No need to check any more conditions
+                conflicting_conditions = true;
+                goto end_bounds_constraint;
+            } else {
+                min_key = key;
+                max_key = min_key;
+            }
+          break;
+        case SelCond::NE:
+            // TODO figure this out.
+            // indicate that we have skipped this condition and can't remove it
+            used_condition = false;
+          break;
+        case SelCond::GT:
+            key = atoi(cond[i].value);
+            if (max_key <= key) {
+                // constraint conflict. No need to check any more conditions
+                conflicting_conditions = true;
+                goto end_bounds_constraint;
+            }
+            else if (min_key < key + 1)
+              min_key = key + 1;
+          break;
+        case SelCond::LT:
+            key = atoi(cond[i].value);
+            if (min_key >= key) {
+                // constraint conflict. No need to check any more conditions
+                conflicting_conditions = true;
+                goto end_bounds_constraint;
+            }
+            else if (max_key > key - 1)
+              max_key = key - 1;
+            break;
+        case SelCond::GE:
+            key = atoi(cond[i].value);
+            if (max_key < key) {
+                // constraint conflict. No need to check any more conditions
+                conflicting_conditions = true;
+                goto end_bounds_constraint;
+            }
+            else if (min_key < key)
+              min_key = key;
+            break;
+        case SelCond::LE:
+            key = atoi(cond[i].value);
+            if (min_key > key) {
+                // constraint conflict. No need to check any more conditions
+                conflicting_conditions = true;
+                goto end_bounds_constraint;
+            }
+            else if (max_key > key)
+              max_key = key;
+            break;
+        }
+        
+        if (used_condition) {
+          //remove the current condition
+          cond.erase(cond.begin() + i);
+          //since we have removed element i from the vector, index i now refers to 
+          //the element (old_i)+1 so we should decrement it before the for loop increments it
+          i--;
+        }
     }
   }
-
+  end_bounds_constraint:
+  
   IndexCursor ic;
   rc = bt.locate(min_key, ic);
   key = min_key;
   count = 0;
 
-  while (key < max_key) {  
+  while (key < max_key && !conflicting_conditions) {  
     count++;
     switch (attr) {
     case 1:  // SELECT key
@@ -144,9 +179,19 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     bt.readForward(ic, key, rid); 
     // TODO we should most definitely change readForward, I think.
   }
+  
+  // print matching tuple count if "select count(*)"
+  if (attr == 4) {
+    fprintf(stdout, "%d\n", count);
+  }
+  
   //TODO define an exit select? 
   return rc;
 
+  
+  //    DESTINATION OF GOTO
+  //===================================================================
+  //    OLD CODE!!!!!!!!!
   read_all: 
       // open the table file
   if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
