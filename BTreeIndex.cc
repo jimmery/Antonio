@@ -35,6 +35,7 @@ RC BTreeIndex::open(const string& indexname, char mode)
     if (rc)
         return rc;
     
+    // we are initializing a BTreeIndex. 
     if (pf.endPid() == 0)
     {
         // initialize a new index. 
@@ -45,15 +46,9 @@ RC BTreeIndex::open(const string& indexname, char mode)
     {
         creatree = false;
         // here, we assume that the page file contains an index. 
-        char * buffer; 
-        fprintf(stdout, "pf.endPid(): %d\n", pf.endPid());
-        fprintf(stdout, "fd: %d\n", pf.fd);
-        fprintf(stdout, "clk: %d\n", pf.cacheClock);
+        char buffer[PageFile::PAGE_SIZE]; 
         // we put the Header in this file.
-        rc = pf.read(0, buffer);  
-        fprintf(stdout, "AFTER READ: pf.endPid(): %d\n", pf.epid);
-        fprintf(stdout, "AFTER READ: fd: %d\n", pf.fd);
-        fprintf(stdout, "AFTER READ: clk: %d\n", pf.cacheClock);
+        rc = pf.read(0, buffer);  // THIS LINE DESTROYS EVERYTHING. 
         if (rc) 
         {
             return rc;
@@ -65,11 +60,11 @@ RC BTreeIndex::open(const string& indexname, char mode)
             fprintf(stdout, "this thing isn't initialized?!\n");
             return 1; // something is wrong with the buffer setup.
         } 
-        fprintf(stdout, "bruh\n");
+        //fprintf(stdout, "bruh\n");
         treeHeight = header->treeHeight;
-        fprintf(stdout, "treeheight: %d\n", treeHeight);
+        //fprintf(stdout, "treeheight: %d\n", treeHeight);
         rootPid = header->rootPid;
-        fprintf(stdout, "rootPid: %d\n", rootPid);
+        //fprintf(stdout, "rootPid: %d\n", rootPid);
     }
     fprintf(stdout, "fml\n");
     return 0;

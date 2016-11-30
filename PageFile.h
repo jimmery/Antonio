@@ -85,7 +85,7 @@ class PageFile {
    */
   RC seek(PageId pid) const;
 
- public:
+ private:
   int     fd;     // file descriptor of the associated unix file
   PageId  epid;   // (last page id + 1) of the file
 
