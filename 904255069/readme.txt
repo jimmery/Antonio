@@ -3,7 +3,6 @@ Jeffrey Jiang (904255069): jiangxuanzhi@gmail.com
 Aaron Chung (804288857): aaronchung@ucla.edu
 
 We did this project by peer programming. We are turning in Project 2C 1 day late. 
-We should have 3 more free days for the last part. 
 
 2B: 
 Since I forgot to change the readme in part 2B, I will include part 2B read me here
@@ -56,3 +55,29 @@ Implementation Details:
     3. Maintaining a path of lineage for the locate function to help with insertion. 
         We additionally created a helper fuction for locate to allow us to implement the
         locate method recursively. 
+
+2D: 
+
+We turned in project 2C two days late. However, what we turned in was unfinished. 
+Frustrated and unpleased with the results, we continued to work afterward, in hopes
+to finish, even if we couldn't get points for the changes that we did. We are now 
+submitting a completed version 3 hours after the 2 day deadline. We will let the 
+TAs and professors decide what they want to do with this version of the submission, 
+but we hope that at least we can get some credit for it. 
+
+Implementation Details: 
+    1. When evaluating a select query on a key attribute, we iterate through the list of
+		constraints and tighten the "min" and "max" bounds. If at any point we encounter
+		a conflicting constraint(i.e. key < 10 and key > 20), then we short circuit the
+		process because we know that there will be no matching tuples returned. 
+    2. After iterating through all bounds constraining conditions, we evaluate the remaining
+		conditions on the subset of keys that fall were not key constraining bounds. If we
+		are not evaluating a condition on a key attribute, we simply search through the
+		entire table.
+
+Troubles we came across in fixing previous parts: 
+    1. Figuring out a segmentation fault caused by not initializing the buffers correctly. 
+        This one took the longest time and was the most frustrating. 
+    2. Editing some bugs with the B+ tree. 
+        We had a good number of our > and < signs backward. 
+    3. Our readForward function was definitely not correct in the past. 
