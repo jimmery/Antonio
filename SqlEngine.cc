@@ -78,10 +78,10 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
         // the min/max key bounds. This is useful for determining if we can 
         // remove the condition from the cond vector
         bool used_condition = true;
+        key = atoi(cond[i].value);
         
         switch(sc.comp) {
         case SelCond::EQ:
-            key = atoi(cond[i].value);
             if (key < min_key || key > max_key) {
                 // constraint conflict. No need to check any more conditions
                 conflicting_conditions = true;
@@ -97,7 +97,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
             used_condition = false;
           break;
         case SelCond::GT:
-            key = atoi(cond[i].value);
             if (max_key <= key) {
                 // constraint conflict. No need to check any more conditions
                 conflicting_conditions = true;
@@ -107,7 +106,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
               min_key = key + 1;
           break;
         case SelCond::LT:
-            key = atoi(cond[i].value);
             if (min_key >= key) {
                 // constraint conflict. No need to check any more conditions
                 conflicting_conditions = true;
@@ -117,7 +115,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
               max_key = key - 1;
             break;
         case SelCond::GE:
-            key = atoi(cond[i].value);
             if (max_key < key) {
                 // constraint conflict. No need to check any more conditions
                 conflicting_conditions = true;
@@ -127,7 +124,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
               min_key = key;
             break;
         case SelCond::LE:
-            key = atoi(cond[i].value);
             if (min_key > key) {
                 // constraint conflict. No need to check any more conditions
                 conflicting_conditions = true;
