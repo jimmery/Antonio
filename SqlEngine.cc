@@ -41,6 +41,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   RecordFile rf;   // RecordFile containing the table
   RecordId   rid;  // record cursor for table scanning
 
+  vector<SelCond> remaining_conds;
   RC     rc;
   int    key;     
   string value;
@@ -73,11 +74,12 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   for (unsigned i = 0; i < cond.size(); i++)
   {
     SelCond sc = cond[i];
-    if (sc.attr == 1) {
+	if (sc.attr != 1) {
+		remaining_conds.push_back(sc);
+	} else if (sc.attr == 1) {
         // this flag indicates whether or not the condition was used to constrain
         // the min/max key bounds. This is useful for determining if we can 
         // remove the condition from the cond vector
-        bool used_condition = true;
         key = atoi(cond[i].value);
         
         switch(sc.comp) {
@@ -92,9 +94,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
             }
           break;
         case SelCond::NE:
-            // TODO figure this out.
-            // indicate that we have skipped this condition and can't remove it
-            used_condition = false;
+			remaining_conds.push_back(sc);
           break;
         case SelCond::GT:
             if (max_key <= key) {
@@ -133,25 +133,58 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
               max_key = key;
             break;
         }
-        
-        if (used_condition) {
-          //remove the current condition
-          cond.erase(cond.begin() + i);
-          //since we have removed element i from the vector, index i now refers to 
-          //the element (old_i)+1 so we should decrement it before the for loop increments it
-          i--;
-        }
     }
   }
-  end_bounds_constraint:
-  
+end_bounds_constraint:
+  // if all conditions require a read of the full table, read_all
+  if (remaining_conds.size() == conds.size())
+	  goto read_all;
+
   IndexCursor ic;
   rc = bt.locate(min_key, ic);
   key = min_key;
   count = 0;
 
-  while (key < max_key && !conflicting_conditions) {  
-    count++;
+  while (key < max_key && !conflicting_conditions) {
+
+	for (unsigned i = 0; i < remaining_conds.size(); i++) {
+		// compute the difference between the tuple value and the condition value
+		switch (remaining_conds[i].attr) {
+		case 1:
+			diff = key - atoi(remaining_conds[i].value);
+			break;
+		case 2:
+			diff = strcmp(value.c_str(), remaining_conds[i].value);
+			break;
+		}
+
+		// skip the leaf if any condition is not met
+		switch (remaining_conds[i].comp) {
+		case SelCond::EQ:
+			if (diff != 0) goto next_leaf;
+			break;
+		case SelCond::NE:
+			if (diff == 0) goto next_leaf;
+			break;
+		case SelCond::GT:
+			if (diff <= 0) goto next_leaf;
+			break;
+		case SelCond::LT:
+			if (diff >= 0) goto next_leaf;
+			break;
+		case SelCond::GE:
+			if (diff < 0) goto next_leaf;
+			break;
+		case SelCond::LE:
+			if (diff > 0) goto next_leaf;
+			break;
+		}
+	}
+
+	// the condition is met for the tuple. 
+	// increase matching tuple counter
+	count++;
+
     switch (attr) {
     case 1:  // SELECT key
       // do not need a read, since we have the key. 
@@ -172,6 +205,8 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
       fprintf(stdout, "%d '%s'\n", key, value.c_str());
       break;
     }
+
+	next_leaf:
     bt.readForward(ic, key, rid); 
     // TODO we should most definitely change readForward, I think.
   }
