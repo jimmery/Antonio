@@ -48,6 +48,10 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   int    count;
   int    diff;
 
+  int min_key;
+  int max_key;
+  bool conflicting_conditions;
+
   // open the BTreeIndex. 
   BTreeIndex bt; 
   rc = bt.open(table + ".idx", 'r');
@@ -55,14 +59,15 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     fprintf(stdout, "No index %s found, using table search.\n", table.c_str());
     goto read_all;
   }
+  fprintf(stdout, "attr: %d, table name: %s\n", attr, table.c_str());
 
   // the new stuff. if we do in fact find that there is an index. 
   // TODO figure out how to initialize these values? 
 
   // save the min/max value of the key (inclusive)
-  int min_key = INT_MIN;
-  int max_key = INT_MAX;
-  bool conflicting_conditions = false;
+  min_key = INT_MIN;
+  max_key = INT_MAX;
+  conflicting_conditions = false;
   
   // TODO figure this out. for now. 
   char* min_value; 
@@ -137,7 +142,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   }
 end_bounds_constraint:
   // if all conditions require a read of the full table, read_all
-  if (remaining_conds.size() == conds.size())
+  if (remaining_conds.size() == cond.size())
 	  goto read_all;
 
   IndexCursor ic;

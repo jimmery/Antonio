@@ -29,7 +29,6 @@ BTreeIndex::BTreeIndex()
  */
 RC BTreeIndex::open(const string& indexname, char mode)
 {
-
     RC rc = pf.open(indexname, mode);
     if (rc)
         return rc;
@@ -68,7 +67,6 @@ RC BTreeIndex::open(const string& indexname, char mode)
  */
 RC BTreeIndex::close()
 {
-
     // this code puts all the information back into the page file. 
     // the problem with this code may be that there are atomicity issues in the future. 
     // we are not sure how the read write privileges provided by page file works 
@@ -182,18 +180,6 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
         }
     }
     return 0;
-}
-
-// this might be deprecated. not sure. 
-// i feel like we're missing that case with leaf nodes though. huh. 
-RC BTreeIndex::insert(int key, const Record& rid, int level, PageId pid)
-{
-    if ( level == treeHeight )
-    {
-        leaf_node.read(pid, pf);
-
-    }
-
 }
 
 /**
