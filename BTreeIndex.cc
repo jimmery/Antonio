@@ -55,7 +55,6 @@ RC BTreeIndex::open(const string& indexname, char mode)
         Header* header = (Header *)buffer; 
         if ( !(header->initialized) )
         {
-            fprintf(stdout, "this thing isn't initialized?!\n");
             return 1; // something is wrong with the buffer setup.
         } 
         //fprintf(stdout, "bruh\n");
@@ -64,7 +63,6 @@ RC BTreeIndex::open(const string& indexname, char mode)
         rootPid = header->rootPid;
         //fprintf(stdout, "rootPid: %d\n", rootPid);
     }
-    fprintf(stdout, "fml\n");
     return 0;
 }
 
@@ -88,9 +86,6 @@ RC BTreeIndex::close()
     header->initialized = true;
     header->treeHeight = treeHeight;
     header->rootPid = rootPid;
-    fprintf(stdout, "treeheight: %d\n", treeHeight);
-    fprintf(stdout, "rootPid: %d\n", rootPid);
-    fprintf(stdout, "IN CLOSE: pf.endPid(): %d\n", pf.endPid());
     rc = pf.write(0, buffer);
     if (rc)
         return rc;
@@ -108,11 +103,11 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
     if (treeHeight == 0) {
         //initialize a new tree
         // we assume a new tree will have its root be a leaf. 
-        BTLeafNode root;
+        BTLeafNode root(-1, -1);
         rootPid = 1;
-        root.write(rootPid, pf);
         treeHeight = 1;
         root.insert(key, rid);
+        root.write(rootPid, pf);
     } else {
         IndexCursor cursor;
         vector<PageId> path;
@@ -215,6 +210,7 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
     vector<PageId> path;
+    fprintf(stdout, "rootpid: %d, searchKey: %d\n", rootPid, searchKey);
     return locate(searchKey, cursor, rootPid, 1, path);
 }
 
@@ -236,23 +232,17 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, 
                       PageId cur_page, int level, vector<PageId>& path)
 {
-    fprintf(stdout, "searchkey: %d, cur_page: %d\n", searchKey, cur_page);
-    fprintf(stdout, "cur_level: %d, height: %d\n", level, treeHeight);
     path.push_back(cur_page);
     if ( level == treeHeight )
     {
         BTLeafNode leaf;
-        fprintf(stdout, "kill me baby.\n");
         leaf.read(cur_page, pf);
         
         int eid;
         int key; 
-        RecordId rid; 
-        fprintf(stdout, "jingle bells.\n");
+        RecordId rid;
         RC val = leaf.locate(searchKey, eid);
-        fprintf(stdout, "oh what fun.\n");
         leaf.readEntry(eid, key, rid);
-        fprintf(stdout, "it is to ride.\n");
 
         cursor.pid = cur_page;
         cursor.eid = eid;
@@ -264,7 +254,6 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor,
 
     PageId next_page;
     node.locateChildPtr(searchKey, next_page); // currently always returns 0. 
-    fprintf(stdout, "next_page: %d\n", next_page);
     return locate(searchKey, cursor, next_page, level + 1, path);
 }
 
@@ -281,11 +270,12 @@ RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
     BTLeafNode leaf;
     leaf.read(cursor.pid, pf);
     RC successfulRead = leaf.readEntry(cursor.eid, key, rid);
-    if ( cursor.eid == leaf.getKeyCount() ) {
+    cursor.eid++;
+    if ( cursor.eid == leaf.getKeyCount() - 1) {
         cursor.pid = leaf.getNextNodePtr();
+        if (cursor.pid == -1)
+            return 1;
         cursor.eid = 0;
     }
-    else
-        cursor.eid = cursor.eid + 1;
     return successfulRead;
 }

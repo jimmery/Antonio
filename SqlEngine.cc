@@ -39,7 +39,6 @@ RC SqlEngine::run(FILE* commandline)
 
 RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 {
-  fprintf(stdout, "START OF SELECT attr: %d, table name: %s\n", attr, table.c_str());
   RecordFile rf;   // RecordFile containing the table
   RecordId   rid;  // record cursor for table scanning
 
@@ -59,7 +58,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 
   // open the table file
   if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
-    fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
     return rc;
   }
 
@@ -78,7 +76,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   max_key = INT_MAX;
   conflicting_conditions = false;
 
-  fprintf(stdout, "BEFORE LOOP. attr: %d, table name: %s\n", attr, table.c_str());
   //=======================================
   // finding upper and lower bounds
   for (unsigned i = 0; i < cond.size(); i++)
@@ -92,8 +89,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
         // remove the condition from the cond vector
         
         key = atoi(cond[i].value);
-        fprintf(stdout, "hello world. val = %d, comparison type = %d\n", key, sc.comp);
-        fprintf(stdout, "SelCond::GT is %d\n", SelCond::GT);
         switch(sc.comp) {
         case SelCond::EQ:
           if (key < min_key || key > max_key) {
@@ -109,7 +104,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
 			    remaining_conds.push_back(sc);
           break;
         case SelCond::GT:
-          fprintf(stdout, "key > %d\n", key);
           if (max_key <= key) {
               // constraint conflict. No need to check any more conditions
               conflicting_conditions = true;
@@ -156,15 +150,13 @@ end_bounds_constraint:
   if (conflicting_conditions)
     goto exit_select;
 
-  fprintf(stdout, "minkey = %d\n", min_key);
   rc = bt.locate(min_key, ic);
-  fprintf(stdout, "in a one horse open slay.\n");
   fprintf(stdout, "cursor.pid: %d, cursor.eid: %d\n", ic.pid, ic.eid);
   rc = bt.readForward(ic, key, rid);
   fprintf(stdout, "cursor.pid: %d, cursor.eid: %d, key: %d\n", ic.pid, ic.eid, key);
   count = 0;
 
-  while (rc || (key <= max_key && !conflicting_conditions)) {
+  while (!rc && (key <= max_key)) {
     for (unsigned i = 0; i < remaining_conds.size(); i++) {
       // compute the difference between the tuple value and the condition value
       switch (remaining_conds[i].attr) {
@@ -318,7 +310,6 @@ end_bounds_constraint:
 
 RC SqlEngine::load(const string& table, const string& loadfile, bool index)
 {
-  fprintf(stdout, "table name: %s, loadfile: %s\n", table.c_str(), loadfile.c_str());
   /* your code here */
   RC rc; 
   BTreeIndex bt;  
