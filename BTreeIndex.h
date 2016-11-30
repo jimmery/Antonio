@@ -13,6 +13,7 @@
 #include "Bruinbase.h"
 #include "PageFile.h"
 #include "RecordFile.h"
+#include "BTreeNode.h"
 #include <vector>
              
 /**
@@ -95,13 +96,13 @@ class BTreeIndex {
    * @return error code. 0 if no error
    */
   RC readForward(IndexCursor& cursor, int& key, RecordId& rid);
+  RC readCurrent(IndexCursor& cursor, int& key, RecordId& rid);
   
  private:
   PageFile pf;         /// the PageFile used to store the actual b+tree in disk
 
   PageId   rootPid;    /// the PageId of the root node
   int      treeHeight; /// the height of the tree
-  bool     creatree;
   /// Note that the content of the above two variables will be gone when
   /// this class is destructed. Make sure to store the values of the two 
   /// variables in disk, so that they can be reconstructed when the index

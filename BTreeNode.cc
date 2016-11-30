@@ -48,7 +48,7 @@ PageId BTLeafNode::getPid() {
  * @return 0 if successful. Return an error code if there is an error.
  */
 RC BTLeafNode::read(PageId pid, const PageFile& pf)
-{ 
+{
     RC val = pf.read(pid, buffer); 
     LeafNodeHeader* header = (LeafNodeHeader*) buffer; 
     if (header->pid != pid) {
@@ -56,6 +56,7 @@ RC BTLeafNode::read(PageId pid, const PageFile& pf)
         // new or empty node. 
         header->pid = pid;
     }
+    //fprintf(stdout, "qq %d\n", pid);
     return val;
 }
     
@@ -198,19 +199,25 @@ RC BTLeafNode::locate(int searchKey, int& eid)
 {
     // currently not binary search. TODO: change for improved efficiency? 
     // can we do and figure out the entry id? probably huh. but it's annoying. 
+    fprintf(stdout, "jingle all the way., %d\n", getKeyCount());
     for (int i = 0; i < getKeyCount(); i++)
     {
+        fprintf(stdout, "i = %d, getKeyCount = %d\n", i, getKeyCount());
         LeafPair* pair = (LeafPair*) (buffer + byteIndexOf(i));
+        fprintf(stdout, "the key of the leaf: %d\n", pair->key);
         if (pair->key == searchKey)
         {
+            fprintf(stdout, "we found it!\n");
             eid = i;
             return 0;
         }
-        else if ( pair->key < searchKey )
+        else if (pair->key > searchKey)
         {
+            fprintf(stdout, "we didn't find it. :(\n");
             eid = i; 
             return RC_NO_SUCH_RECORD;
         }
+        fprintf(stdout, "we keep looking ;)\n");
     }
     eid = getKeyCount(); 
     return RC_NO_SUCH_RECORD;
@@ -482,7 +489,7 @@ RC BTNonLeafNode::insertAndSplit(int key, PageId pid, BTNonLeafNode& sibling, in
 RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
 {
     NodePair* pair = (NodePair*) (buffer + byteIndexOf(0));
-    if (searchKey > pair->key)
+    if (searchKey < pair->key)
     {
         NonLeafHeader* header = (NonLeafHeader*) buffer; 
         pid = header->first_pid;
@@ -491,7 +498,7 @@ RC BTNonLeafNode::locateChildPtr(int searchKey, PageId& pid)
     for (int i = 1; i < getKeyCount(); i++)
     {
         pair = (NodePair*) (buffer + byteIndexOf(i));
-        if ( searchKey > pair->key )
+        if ( searchKey < pair->key )
         {
             NodePair* prev_pair = (NodePair*) (buffer + byteIndexOf(i-1));
             pid = prev_pair->pid;

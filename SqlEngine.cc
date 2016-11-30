@@ -16,6 +16,7 @@
 #include <fstream>
 #include "Bruinbase.h"
 #include "SqlEngine.h"
+#include "BTreeIndex.h"
 
 using namespace std;
 
@@ -53,18 +54,21 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   int max_key;
   bool conflicting_conditions;
 
-  // open the BTreeIndex. 
-  BTreeIndex bt;
-  //string table_name = table.c_str();
-  fprintf(stdout, "BEFOPEN\n");
-  rc = bt.open(table + ".idx", 'r');
-  fprintf(stdout, "kill me know\n");
-  if (rc < 0) {
-    fprintf(stdout, "No index %s found, using table search.\n", table.c_str());
-    goto read_all;
+  IndexCursor ic;
+  BTLeafNode leaf;
+
+  // open the table file
+  if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
+    fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
+    return rc;
   }
 
-  fprintf(stdout, "YOOOOOOO\n");
+  // open the BTreeIndex. 
+  BTreeIndex bt;
+  rc = bt.open(table + ".idx", 'r');
+  if (rc < 0) {
+    goto read_all;
+  }
 
   // the new stuff. if we do in fact find that there is an index. 
   // TODO figure out how to initialize these values? 
@@ -73,10 +77,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   min_key = INT_MIN;
   max_key = INT_MAX;
   conflicting_conditions = false;
-  
-  // TODO figure this out. for now. 
-  char* min_value; 
-  char* max_value;
 
   fprintf(stdout, "BEFORE LOOP. attr: %d, table name: %s\n", attr, table.c_str());
   //=======================================
@@ -90,27 +90,30 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
         // this flag indicates whether or not the condition was used to constrain
         // the min/max key bounds. This is useful for determining if we can 
         // remove the condition from the cond vector
-        key = atoi(cond[i].value);
         
+        key = atoi(cond[i].value);
+        fprintf(stdout, "hello world. val = %d, comparison type = %d\n", key, sc.comp);
+        fprintf(stdout, "SelCond::GT is %d\n", SelCond::GT);
         switch(sc.comp) {
         case SelCond::EQ:
-            if (key < min_key || key > max_key) {
-                // constraint conflict. No need to check any more conditions
-                conflicting_conditions = true;
-                goto end_bounds_constraint;
-            } else {
-                min_key = key;
-                max_key = min_key;
-            }
+          if (key < min_key || key > max_key) {
+              // constraint conflict. No need to check any more conditions
+              conflicting_conditions = true;
+              goto end_bounds_constraint;
+          } else {
+              min_key = key;
+              max_key = min_key;
+          }
           break;
         case SelCond::NE:
-			remaining_conds.push_back(sc);
+			    remaining_conds.push_back(sc);
           break;
         case SelCond::GT:
-            if (max_key <= key) {
-                // constraint conflict. No need to check any more conditions
-                conflicting_conditions = true;
-                goto end_bounds_constraint;
+          fprintf(stdout, "key > %d\n", key);
+          if (max_key <= key) {
+              // constraint conflict. No need to check any more conditions
+              conflicting_conditions = true;
+              goto end_bounds_constraint;
             }
             else if (min_key < key + 1)
               min_key = key + 1;
@@ -150,51 +153,55 @@ end_bounds_constraint:
   // if all conditions require a read of the full table, read_all
   if (remaining_conds.size() == cond.size())
 	  goto read_all;
+  if (conflicting_conditions)
+    goto exit_select;
 
-  IndexCursor ic;
+  fprintf(stdout, "minkey = %d\n", min_key);
   rc = bt.locate(min_key, ic);
-  key = min_key;
+  fprintf(stdout, "in a one horse open slay.\n");
+  fprintf(stdout, "cursor.pid: %d, cursor.eid: %d\n", ic.pid, ic.eid);
+  rc = bt.readForward(ic, key, rid);
+  fprintf(stdout, "cursor.pid: %d, cursor.eid: %d, key: %d\n", ic.pid, ic.eid, key);
   count = 0;
 
-  while (key < max_key && !conflicting_conditions) {
+  while (rc || (key <= max_key && !conflicting_conditions)) {
+    for (unsigned i = 0; i < remaining_conds.size(); i++) {
+      // compute the difference between the tuple value and the condition value
+      switch (remaining_conds[i].attr) {
+      case 1:
+        diff = key - atoi(remaining_conds[i].value);
+        break;
+      case 2:
+        diff = strcmp(value.c_str(), remaining_conds[i].value);
+        break;
+      }
 
-	for (unsigned i = 0; i < remaining_conds.size(); i++) {
-		// compute the difference between the tuple value and the condition value
-		switch (remaining_conds[i].attr) {
-		case 1:
-			diff = key - atoi(remaining_conds[i].value);
-			break;
-		case 2:
-			diff = strcmp(value.c_str(), remaining_conds[i].value);
-			break;
-		}
+      // skip the leaf if any condition is not met
+      switch (remaining_conds[i].comp) {
+      case SelCond::EQ:
+        if (diff != 0) goto next_leaf;
+        break;
+      case SelCond::NE:
+        if (diff == 0) goto next_leaf;
+        break;
+      case SelCond::GT:
+        if (diff <= 0) goto next_leaf;
+        break;
+      case SelCond::LT:
+        if (diff >= 0) goto next_leaf;
+        break;
+      case SelCond::GE:
+        if (diff < 0) goto next_leaf;
+        break;
+      case SelCond::LE:
+        if (diff > 0) goto next_leaf;
+        break;
+      }
+    }
 
-		// skip the leaf if any condition is not met
-		switch (remaining_conds[i].comp) {
-		case SelCond::EQ:
-			if (diff != 0) goto next_leaf;
-			break;
-		case SelCond::NE:
-			if (diff == 0) goto next_leaf;
-			break;
-		case SelCond::GT:
-			if (diff <= 0) goto next_leaf;
-			break;
-		case SelCond::LT:
-			if (diff >= 0) goto next_leaf;
-			break;
-		case SelCond::GE:
-			if (diff < 0) goto next_leaf;
-			break;
-		case SelCond::LE:
-			if (diff > 0) goto next_leaf;
-			break;
-		}
-	}
-
-	// the condition is met for the tuple. 
-	// increase matching tuple counter
-	count++;
+    // the condition is met for the tuple. 
+    // increase matching tuple counter
+    count++;
 
     switch (attr) {
     case 1:  // SELECT key
@@ -203,25 +210,20 @@ end_bounds_constraint:
       break;
     case 2:  // SELECT value
       // do a read to get the value. 
-      rid.pid = ic.pid;
-      rid.sid = ic.eid; // TODO check this. 
       rf.read(rid, key, value);
       fprintf(stdout, "%s\n", value.c_str());
       break;
     case 3:  // SELECT *
-      // do a read to get the value. 
-      rid.pid = ic.pid;
-      rid.sid = ic.eid; // TODO check this. 
       rf.read(rid, key, value);
       fprintf(stdout, "%d '%s'\n", key, value.c_str());
       break;
     }
 
-	next_leaf:
-    bt.readForward(ic, key, rid); 
-    // TODO we should most definitely change readForward, I think.
+    next_leaf:
+    rc = bt.readForward(ic, key, rid); 
+    fprintf(stdout, "cursor.pid: %d, cursor.eid: %d, key: %d\n", ic.pid, ic.eid, key);
   }
-  
+    
   // print matching tuple count if "select count(*)"
   if (attr == 4) {
     fprintf(stdout, "%d\n", count);
@@ -235,11 +237,6 @@ end_bounds_constraint:
   //===================================================================
   //    OLD CODE!!!!!!!!!
   read_all: 
-      // open the table file
-  if ((rc = rf.open(table + ".tbl", 'r')) < 0) {
-    fprintf(stderr, "Error: table %s does not exist\n", table.c_str());
-    return rc;
-  }
 
   // scan the table file from the beginning
   rid.pid = rid.sid = 0;

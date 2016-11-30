@@ -40,15 +40,13 @@ RC BTreeIndex::open(const string& indexname, char mode)
     {
         // initialize a new index. 
         treeHeight = 0;
-        creatree = true;
     } 
     else
     {
-        creatree = false;
         // here, we assume that the page file contains an index. 
-        char buffer[PageFile::PAGE_SIZE]; 
+        char buffer[PageFile::PAGE_SIZE]; // this fucking line. 
         // we put the Header in this file.
-        rc = pf.read(0, buffer);  // THIS LINE DESTROYS EVERYTHING. 
+        rc = pf.read(0, buffer);  
         if (rc) 
         {
             return rc;
@@ -238,19 +236,26 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor, 
                       PageId cur_page, int level, vector<PageId>& path)
 {
+    fprintf(stdout, "searchkey: %d, cur_page: %d\n", searchKey, cur_page);
+    fprintf(stdout, "cur_level: %d, height: %d\n", level, treeHeight);
     path.push_back(cur_page);
     if ( level == treeHeight )
     {
         BTLeafNode leaf;
+        fprintf(stdout, "kill me baby.\n");
         leaf.read(cur_page, pf);
-
+        
         int eid;
         int key; 
         RecordId rid; 
+        fprintf(stdout, "jingle bells.\n");
         RC val = leaf.locate(searchKey, eid);
+        fprintf(stdout, "oh what fun.\n");
         leaf.readEntry(eid, key, rid);
+        fprintf(stdout, "it is to ride.\n");
 
         cursor.pid = cur_page;
+        cursor.eid = eid;
         return val;
     }
 
@@ -259,6 +264,7 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor,
 
     PageId next_page;
     node.locateChildPtr(searchKey, next_page); // currently always returns 0. 
+    fprintf(stdout, "next_page: %d\n", next_page);
     return locate(searchKey, cursor, next_page, level + 1, path);
 }
 
@@ -273,7 +279,13 @@ RC BTreeIndex::locate(int searchKey, IndexCursor& cursor,
 RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
 {
     BTLeafNode leaf;
+    leaf.read(cursor.pid, pf);
     RC successfulRead = leaf.readEntry(cursor.eid, key, rid);
-    leaf.locate(key+1, cursor.eid);
+    if ( cursor.eid == leaf.getKeyCount() ) {
+        cursor.pid = leaf.getNextNodePtr();
+        cursor.eid = 0;
+    }
+    else
+        cursor.eid = cursor.eid + 1;
     return successfulRead;
 }
