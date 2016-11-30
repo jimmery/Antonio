@@ -59,7 +59,6 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
     fprintf(stdout, "No index %s found, using table search.\n", table.c_str());
     goto read_all;
   }
-  fprintf(stdout, "attr: %d, table name: %s\n", attr, table.c_str());
 
   // the new stuff. if we do in fact find that there is an index. 
   // TODO figure out how to initialize these values? 
@@ -73,15 +72,15 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
   char* min_value; 
   char* max_value;
 
-  
+  fprintf(stdout, "BEFORE LOOP. attr: %d, table name: %s\n", attr, table.c_str());
   //=======================================
   // finding upper and lower bounds
   for (unsigned i = 0; i < cond.size(); i++)
   {
     SelCond sc = cond[i];
-	if (sc.attr != 1) {
-		remaining_conds.push_back(sc);
-	} else if (sc.attr == 1) {
+    if (sc.attr != 1) {
+      remaining_conds.push_back(sc);
+    } else if (sc.attr == 1) {
         // this flag indicates whether or not the condition was used to constrain
         // the min/max key bounds. This is useful for determining if we can 
         // remove the condition from the cond vector
@@ -140,6 +139,7 @@ RC SqlEngine::select(int attr, const string& table, const vector<SelCond>& cond)
         }
     }
   }
+  
 end_bounds_constraint:
   // if all conditions require a read of the full table, read_all
   if (remaining_conds.size() == cond.size())
@@ -244,7 +244,6 @@ end_bounds_constraint:
       fprintf(stderr, "Error: while reading a tuple from table %s\n", table.c_str());
       goto exit_select;
     }
-
     // check the conditions on the tuple
     for (unsigned i = 0; i < cond.size(); i++) {
       // compute the difference between the tuple value and the condition value
@@ -316,6 +315,7 @@ end_bounds_constraint:
 
 RC SqlEngine::load(const string& table, const string& loadfile, bool index)
 {
+  fprintf(stdout, "table name: %s, loadfile: %s\n", table.c_str(), loadfile.c_str());
   /* your code here */
   RC rc; 
   BTreeIndex bt;  
@@ -353,6 +353,8 @@ RC SqlEngine::load(const string& table, const string& loadfile, bool index)
   
   myfile.close();
   rfile.close();
+  if (index)
+    bt.close();
   return 0;
 }
 

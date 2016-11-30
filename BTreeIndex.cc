@@ -9,6 +9,8 @@
  
 #include "BTreeIndex.h"
 #include "BTreeNode.h"
+#include <iostream>
+#include <fstream>
 
 using namespace std;
 
@@ -37,12 +39,14 @@ RC BTreeIndex::open(const string& indexname, char mode)
     {
         // initialize a new index. 
         treeHeight = 0;
+        creatree = true;
     } 
     else
     {
+        creatree = false;
         // here, we assume that the page file contains an index. 
         char * buffer; 
-
+        fprintf(stdout, "pf.endPid(): %d\n", pf.endPid());
         // we put the Header in this file.
         rc = pf.read(0, buffer);  
         if (rc) 
@@ -71,14 +75,24 @@ RC BTreeIndex::close()
     // the problem with this code may be that there are atomicity issues in the future. 
     // we are not sure how the read write privileges provided by page file works 
     // so we don't want to guarantee that our code will remain this way. 
+    RC rc;
     char * buffer; 
-    RC rc = pf.read(0, buffer);
-    if (rc)
-        return rc;
+    
+    if ( creatree ) {
+        buffer = new char[PageFile::PAGE_SIZE];
+    }
+    else
+    {
+        rc = pf.read(0, buffer);
+        if (rc)
+            return rc;   
+    }
+    
     Header* header = (Header *)buffer; 
     header->initialized = true;
     header->treeHeight = treeHeight;
     header->rootPid = rootPid;
+    fprintf(stdout, "IN CLOSE: pf.endPid(): %d\n", pf.endPid());
     rc = pf.write(0, buffer);
     if (rc)
         return rc;
