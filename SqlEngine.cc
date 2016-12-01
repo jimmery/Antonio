@@ -151,9 +151,9 @@ end_bounds_constraint:
     goto exit_select;
 
   rc = bt.locate(min_key, ic);
-  fprintf(stdout, "cursor.pid: %d, cursor.eid: %d\n", ic.pid, ic.eid);
+  //fprintf(stdout, "cursor.pid: %d, cursor.eid: %d\n", ic.pid, ic.eid);
   rc = bt.readForward(ic, key, rid);
-  fprintf(stdout, "cursor.pid: %d, cursor.eid: %d, key: %d\n", ic.pid, ic.eid, key);
+  //fprintf(stdout, "cursor.pid: %d, cursor.eid: %d, key: %d\n", ic.pid, ic.eid, key);
   count = 0;
 
   while (!rc && (key <= max_key)) {
@@ -213,7 +213,7 @@ end_bounds_constraint:
 
     next_leaf:
     rc = bt.readForward(ic, key, rid); 
-    fprintf(stdout, "cursor.pid: %d, cursor.eid: %d, key: %d\n", ic.pid, ic.eid, key);
+//    fprintf(stdout, "cursor.pid: %d, cursor.eid: %d, key: %d, iteration: %d\n", ic.pid, ic.eid, key, count);
   }
     
   // print matching tuple count if "select count(*)"

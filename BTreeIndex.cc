@@ -122,6 +122,7 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
         if (leaf.insert(key, rid)) { 
             BTLeafNode sibling;
             int siblingKey;
+			sibling.read(pf.endPid(), pf);
             leaf.insertAndSplit(key, rid, sibling, siblingKey);
 
             // save the new leaves. 
@@ -210,7 +211,7 @@ RC BTreeIndex::insert(int key, const RecordId& rid)
 RC BTreeIndex::locate(int searchKey, IndexCursor& cursor)
 {
     vector<PageId> path;
-    fprintf(stdout, "rootpid: %d, searchKey: %d\n", rootPid, searchKey);
+  //  fprintf(stdout, "rootpid: %d, searchKey: %d\n", rootPid, searchKey);
     return locate(searchKey, cursor, rootPid, 1, path);
 }
 
@@ -271,9 +272,13 @@ RC BTreeIndex::readForward(IndexCursor& cursor, int& key, RecordId& rid)
     leaf.read(cursor.pid, pf);
     RC successfulRead = leaf.readEntry(cursor.eid, key, rid);
     cursor.eid++;
-    if ( cursor.eid == leaf.getKeyCount() - 1) {
-        cursor.pid = leaf.getNextNodePtr();
-        if (cursor.pid == -1)
+    if ( cursor.eid >= leaf.getKeyCount()-1) {
+		//fprintf(stdout, "before locate, cursor.eid: %d, cursor.pid: %d, leaf.getKeyCount() = %d\n", cursor.eid, cursor.pid, leaf.getKeyCount());
+		//locate(key + 1, cursor);
+		//fprintf(stdout, "after locate(%d, cursor), new cursor.eid = %d, new cursor.pid = %d\n", key + 1, cursor.eid, cursor.pid);
+		cursor.pid = leaf.getNextNodePtr();
+		
+		if (cursor.pid == -1)
             return 1;
         cursor.eid = 0;
     }
